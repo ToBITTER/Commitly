@@ -125,16 +125,33 @@ function trimAtWordBoundary(value, maxLength) {
 }
 
 function normalizeOpenAIError(error) {
+  const detail = getOpenAIErrorDetail(error);
+
   if (error?.status === 401) {
     return new CommitlyError("OpenAI rejected the API key. Check OPENAI_API_KEY and try again.", {
       cause: error,
     });
   }
 
+  if (error?.status === 403 || error?.status === 404) {
+    return new CommitlyError(
+      `OpenAI could not use the configured model or project access. ${detail}`,
+      { cause: error },
+    );
+  }
+
   if (error?.status === 429) {
-    return new CommitlyError("OpenAI rate limit reached. Wait a moment, then regenerate.", {
-      cause: error,
-    });
+    if (/insufficient[_\s-]?quota/i.test(detail)) {
+      return new CommitlyError(
+        `OpenAI quota is exhausted or billing is not active for this project. ${detail}`,
+        { cause: error },
+      );
+    }
+
+    return new CommitlyError(
+      `OpenAI returned a rate or quota limit. ${detail}`,
+      { cause: error },
+    );
   }
 
   if (NETWORK_ERROR_CODES.has(error?.code)) {
@@ -146,4 +163,25 @@ function normalizeOpenAIError(error) {
   return new CommitlyError(`OpenAI request failed: ${error?.message || "unknown error"}`, {
     cause: error,
   });
+}
+
+function getOpenAIErrorDetail(error) {
+  const code = error?.code || error?.error?.code || error?.body?.error?.code;
+  const type = error?.type || error?.error?.type || error?.body?.error?.type;
+  const message = error?.message || error?.error?.message || error?.body?.error?.message;
+  const pieces = [];
+
+  if (code) {
+    pieces.push(`code=${code}`);
+  }
+
+  if (type) {
+    pieces.push(`type=${type}`);
+  }
+
+  if (message) {
+    pieces.push(`message="${message}"`);
+  }
+
+  return pieces.length ? pieces.join("; ") : "Check OpenAI usage, billing, limits, and model access.";
 }
