@@ -19,7 +19,9 @@ program
   .description("Generate local Conventional Commit messages from staged git changes.")
   .version(packageJson.version)
   .option("--dry-run", "print the generated message without committing")
+  .option("--offline", "generate a deterministic message without Ollama")
   .option("-c, --config <path>", "path to a .commitlyrc JSON config file")
+  .option("-m, --model <model>", "Ollama model to use")
   .option("-y, --yes", "accept the first generated message without prompting")
   .action(async (options) => {
     await runCommitly(options);

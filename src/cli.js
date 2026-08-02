@@ -3,6 +3,7 @@ import readline from "node:readline/promises";
 import { loadConfig } from "./config.js";
 import { CommitlyError } from "./errors.js";
 import { commitStagedChanges, getStagedDiff } from "./git.js";
+import { generateOllamaCommitMessage } from "./ollama.js";
 import { generateOfflineCommitMessage } from "./offline.js";
 
 export async function runCommitly(options = {}) {
@@ -10,10 +11,14 @@ export async function runCommitly(options = {}) {
   const config = await loadConfig({
     cwd,
     configPath: options.config,
+    modelOverride: options.model,
   });
   const diff = await getStagedDiff({ cwd });
   const previousMessages = [];
-  const generateMessage = () => generateOfflineCommitMessage({ diff, config, previousMessages });
+  const generateMessage = () =>
+    options.offline
+      ? generateOfflineCommitMessage({ diff, config, previousMessages })
+      : generateOllamaCommitMessage({ diff, config, previousMessages });
   let message = await generateMessage();
 
   if (options.dryRun) {

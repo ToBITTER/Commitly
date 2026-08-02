@@ -4,23 +4,31 @@ Commitly ships as the `commitly-ai` npm package and installs a `commitly` termin
 
 ## Before Publishing
 
-1. Stage a real change in a Git repository.
-2. Run:
+1. Install Ollama.
+2. Pull the default model:
+
+```sh
+ollama pull qwen2.5-coder:1.5b
+```
+
+3. Stage a real change in a Git repository.
+4. Run:
 
 ```sh
 npm run verify
+node ./bin/commitly.js --offline --dry-run
 node ./bin/commitly.js --dry-run
 ```
 
-3. Record `docs/demo.gif` after a successful run.
-4. Commit and push the repo to GitHub.
+5. Record `docs/demo.gif` after a successful run.
+6. Commit and push the repo to GitHub.
 
 ## GitHub
 
 ```sh
 git init
 git add .
-git commit -m "feat: scaffold local commit cli"
+git commit -m "feat: scaffold ollama commit cli"
 gh repo create commitly --public --source . --remote origin --push
 ```
 
@@ -53,5 +61,6 @@ commitly --help
 Then test in a clean Git repository with staged changes:
 
 ```sh
+commitly --offline --dry-run
 commitly --dry-run
 ```

@@ -18,17 +18,20 @@ export const DEFAULT_CONFIG = Object.freeze({
   ],
   maxLength: 72,
   maxDiffChars: 12000,
+  model: "qwen2.5-coder:1.5b",
 });
 
 export async function loadConfig({
   cwd = process.cwd(),
   configPath,
+  modelOverride,
 } = {}) {
   const discoveredPath = await resolveConfigPath({ cwd, configPath });
   const fileConfig = discoveredPath ? await readConfigFile(discoveredPath) : {};
   const merged = {
     ...DEFAULT_CONFIG,
     ...fileConfig,
+    model: modelOverride || process.env.COMMITLY_MODEL || fileConfig.model || DEFAULT_CONFIG.model,
   };
 
   return validateConfig(merged, discoveredPath);
@@ -117,9 +120,14 @@ function validateConfig(config, configPath) {
     throw new CommitlyError(`${source}: maxDiffChars must be an integer from 1000 to 200000.`);
   }
 
+  if (typeof config.model !== "string" || config.model.trim() === "") {
+    throw new CommitlyError(`${source}: model must be a non-empty string.`);
+  }
+
   return {
     typesAllowed,
     maxLength: config.maxLength,
     maxDiffChars: config.maxDiffChars,
+    model: config.model.trim(),
   };
 }

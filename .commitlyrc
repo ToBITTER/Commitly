@@ -13,5 +13,6 @@
     "revert"
   ],
   "maxLength": 72,
-  "maxDiffChars": 12000
+  "maxDiffChars": 12000,
+  "model": "qwen2.5-coder:1.5b"
 }
