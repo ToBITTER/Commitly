@@ -1,15 +1,23 @@
-export class CommitlyError extends Error {
-  constructor(message, { exitCode = 1, cause } = {}) {
+﻿export class RentSplitError extends Error {
+  constructor(message, { status = 400, code = "bad_request", cause } = {}) {
     super(message);
-    this.name = "CommitlyError";
-    this.exitCode = exitCode;
+    this.name = "RentSplitError";
+    this.status = status;
+    this.code = code;
     this.cause = cause;
   }
 }
 
-export class EmptyDiffError extends CommitlyError {
-  constructor() {
-    super("No staged changes found. Stage files with git add before running commitly.");
-    this.name = "EmptyDiffError";
-  }
+export function notFound(resource, id) {
+  return new RentSplitError(`${resource} not found: ${id}`, {
+    status: 404,
+    code: "not_found",
+  });
+}
+
+export function conflict(message) {
+  return new RentSplitError(message, {
+    status: 409,
+    code: "conflict",
+  });
 }

@@ -1,26 +1,25 @@
-{
-  "name": "commitly-ai",
+﻿{
+  "name": "rentsplit-api",
   "version": "1.0.0",
-  "description": "Ollama-powered Conventional Commit messages from your staged git diff.",
+  "description": "Roommate rent, utility, expense splitting, balance settlement, and reminder API.",
   "type": "module",
   "bin": {
-    "commitly": "bin/commitly.js"
+    "rentsplit": "bin/rentsplit.js"
   },
-  "main": "./src/cli.js",
+  "main": "./src/server.js",
   "scripts": {
-    "start": "node ./bin/commitly.js",
+    "start": "node ./src/server.js",
+    "dev": "node --watch ./src/server.js",
     "test": "node --test",
-    "smoke:help": "node ./bin/commitly.js --help",
-    "check:pack": "npm pack --dry-run --cache ./.npm-cache",
-    "verify": "npm test && npm run smoke:help && npm run check:pack",
-    "prepublishOnly": "npm run verify"
+    "smoke:api": "node ./scripts/smoke-api.js",
+    "verify": "npm test && npm run smoke:api"
   },
   "keywords": [
-    "cli",
-    "commit",
-    "conventional-commits",
-    "git",
-    "ollama"
+    "roommates",
+    "rent",
+    "expense-splitting",
+    "backend",
+    "api"
   ],
   "author": "",
   "license": "MIT",
@@ -30,11 +29,10 @@
   "files": [
     "bin",
     "src",
+    "scripts",
+    "docs",
     "README.md",
     "LICENSE",
-    ".commitlyrc.example"
-  ],
-  "dependencies": {
-    "commander": "^15.0.0"
-  }
+    ".env.example"
+  ]
 }

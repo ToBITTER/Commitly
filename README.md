@@ -1,134 +1,133 @@
-# Commitly
+﻿# RentSplit
 
-Commitly is an Ollama-powered Git commit CLI that reads your staged diff and proposes a clean Conventional Commit message.
+RentSplit is a backend API for roommates who share rent, utilities, groceries, and other house expenses.
 
-No cloud API key. No OpenAI. No Gemini. It runs against your local Ollama server by default.
+It tracks who paid, who participated, how much each person owes, and the smallest set of payments needed to settle up.
 
-## Install
+## What this project proves
 
-```sh
-npm install -g commitly-ai
-```
+- Multi-user data modeling: users, households, memberships, expenses, shares, and payments
+- Settlement logic: calculates who owes who from all expenses and payments
+- Reminder logic: creates reminder digests for outstanding balances
+- API design: clean JSON endpoints with validation and friendly errors
+- Local persistence: stores development data in `data/rentsplit.json`
 
-For local development:
+## Tech Stack
+
+- Node.js 22+
+- Native HTTP server, no framework dependency
+- Node test runner
+- JSON file storage for local development
+
+## Quick Start
 
 ```sh
 npm install
-npm link
+npm start
 ```
 
-## Ollama Setup
+The API runs on:
 
-Install Ollama, then pull the default lightweight coding model:
+```txt
+http://localhost:3000
+```
+
+Health check:
 
 ```sh
-ollama pull qwen2.5-coder:1.5b
+curl http://localhost:3000/health
 ```
 
-Commitly calls:
+On PowerShell:
 
-```text
-http://localhost:11434/api/chat
+```powershell
+Invoke-RestMethod http://localhost:3000/health
 ```
 
-Use `OLLAMA_HOST` if your Ollama server runs elsewhere.
+## Example Flow
 
-## Usage
+Create roommates:
 
 ```sh
-git add src/index.js
-commitly
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ada","email":"ada@example.com"}'
+
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ben","email":"ben@example.com"}'
 ```
 
-Commitly will:
-
-- read `git diff --cached`
-- ask Ollama for a Conventional Commit message
-- let you accept, edit, regenerate, or cancel
-- run `git commit -m "<message>"` when accepted
-
-Dry run:
+Create a household:
 
 ```sh
-commitly --dry-run
+curl -X POST http://localhost:3000/households \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Flat 4B","currency":"NGN","createdByUserId":"usr_1"}'
 ```
 
-Deterministic fallback without Ollama:
+Add a roommate:
 
 ```sh
-commitly --offline --dry-run
+curl -X POST http://localhost:3000/households/home_1/members \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"usr_2"}'
 ```
 
-Pick a different Ollama model:
+Add rent paid by one roommate:
 
 ```sh
-commitly --model llama3.2 --dry-run
+curl -X POST http://localhost:3000/households/home_1/expenses \
+  -H "Content-Type: application/json" \
+  -d '{"description":"August rent","amount":"200000.00","paidByUserId":"usr_1","participantUserIds":["usr_1","usr_2"],"dueDate":"2026-08-05","category":"rent"}'
 ```
 
-Commit immediately with the first suggestion:
+Check settlement:
 
 ```sh
-commitly --yes
+curl http://localhost:3000/households/home_1/balances
 ```
 
-Use a custom config file:
+Result: Ben owes Ada `NGN 100000.00`.
+
+## API Routes
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Service health check |
+| `POST` | `/users` | Create a roommate |
+| `GET` | `/users` | List roommates |
+| `POST` | `/households` | Create a household |
+| `GET` | `/households` | List households |
+| `GET` | `/households/:id` | Get household members |
+| `POST` | `/households/:id/members` | Add roommate to household |
+| `POST` | `/households/:id/expenses` | Add shared expense |
+| `GET` | `/households/:id/expenses` | List expenses |
+| `POST` | `/households/:id/payments` | Record settlement payment |
+| `GET` | `/households/:id/balances` | Calculate who owes who |
+| `GET` | `/households/:id/reminders?asOf=YYYY-MM-DD` | Build reminder digest |
+
+## Testing
 
 ```sh
-commitly --config .commitlyrc
+npm test
+npm run smoke:api
+npm run verify
 ```
 
-## Demo
+## Environment
 
-![Commitly terminal demo](docs/demo.gif)
+Copy `.env.example` if you want custom local values:
 
-Record the demo after the CLI is published:
-
-```sh
-asciinema rec docs/demo.cast
-agg docs/demo.cast docs/demo.gif
+```txt
+PORT=3000
+RENTSPLIT_DATA_FILE=./data/rentsplit.json
 ```
 
-## Config
+## Next Features
 
-Create `.commitlyrc` in the repo where you run Commitly:
-
-```json
-{
-  "typesAllowed": ["feat", "fix", "docs", "refactor", "test", "chore"],
-  "maxLength": 72,
-  "maxDiffChars": 12000,
-  "model": "qwen2.5-coder:1.5b"
-}
-```
-
-Options:
-
-- `typesAllowed`: Conventional Commit types Commitly may use
-- `maxLength`: maximum length for the generated one-line message
-- `maxDiffChars`: maximum diff characters sent to Ollama
-- `model`: Ollama model name
-
-`COMMITLY_MODEL` and `--model` override the config model.
-
-## Friendly Errors
-
-Commitly stops early with readable errors when:
-
-- no files are staged
-- Git is missing
-- the command is not run inside a Git repository
-- Ollama is not running
-- the configured Ollama model has not been pulled
-- `.commitlyrc` contains invalid JSON
-
-## Publish Checklist
-
-- Run `npm test`
-- Run `npm run verify`
-- Run `commitly --help`
-- Test `commitly --offline --dry-run` in a real repo with staged changes
-- Test `commitly --dry-run` after `ollama pull qwen2.5-coder:1.5b`
-- Record `docs/demo.gif`
-- Confirm the package name is available
-- Run `npm publish`
-- Test `npm install -g commitly-ai` in a clean terminal
+- Authentication
+- PostgreSQL database adapter
+- Scheduled email/WhatsApp reminders
+- Recurring rent and utility bills
+- Frontend dashboard

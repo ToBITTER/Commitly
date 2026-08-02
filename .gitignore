@@ -1,7 +1,8 @@
-node_modules/
+﻿node_modules/
 .npm-cache/
 .env
 *.log
 *.tgz
-docs/demo.cast
-docs/demo.gif
+coverage/
+data/*.json
+!data/.gitkeep
