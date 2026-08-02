@@ -1,0 +1,7 @@
+node_modules/
+.npm-cache/
+.env
+*.log
+*.tgz
+docs/demo.cast
+docs/demo.gif

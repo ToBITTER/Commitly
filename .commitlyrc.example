@@ -1,0 +1,14 @@
+{
+  "typesAllowed": [
+    "feat",
+    "fix",
+    "docs",
+    "refactor",
+    "test",
+    "chore"
+  ],
+  "maxLength": 72,
+  "maxDiffChars": 12000,
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "none"
+}

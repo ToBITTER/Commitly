@@ -1,0 +1,41 @@
+{
+  "name": "commitly-ai",
+  "version": "1.0.0",
+  "description": "AI-powered Conventional Commit messages from your staged git diff.",
+  "type": "module",
+  "bin": {
+    "commitly": "./bin/commitly.js"
+  },
+  "main": "./src/cli.js",
+  "scripts": {
+    "start": "node ./bin/commitly.js",
+    "test": "node --test",
+    "smoke:help": "node ./bin/commitly.js --help",
+    "check:pack": "npm pack --dry-run --cache ./.npm-cache",
+    "verify": "npm test && npm run smoke:help && npm run check:pack",
+    "prepublishOnly": "npm run verify"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "commit",
+    "conventional-commits",
+    "git"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE",
+    ".commitlyrc.example"
+  ],
+  "dependencies": {
+    "commander": "^15.0.0",
+    "openai": "^7.3.0"
+  }
+}
