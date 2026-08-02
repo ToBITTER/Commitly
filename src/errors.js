@@ -20,3 +20,10 @@ export class MissingApiKeyError extends CommitlyError {
     this.name = "MissingApiKeyError";
   }
 }
+
+export class MissingGeminiApiKeyError extends CommitlyError {
+  constructor() {
+    super("Missing GEMINI_API_KEY. Create a free key in Google AI Studio, then set it in your shell.");
+    this.name = "MissingGeminiApiKeyError";
+  }
+}

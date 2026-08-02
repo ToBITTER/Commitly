@@ -1,10 +1,23 @@
 import OpenAI from "openai";
-import { CommitlyError, MissingApiKeyError } from "./errors.js";
+import { GoogleGenAI } from "@google/genai";
+import { CommitlyError, MissingApiKeyError, MissingGeminiApiKeyError } from "./errors.js";
 import { buildInstructions, buildUserPrompt } from "./prompt.js";
 
 const NETWORK_ERROR_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"]);
 
 export async function generateCommitMessage({ diff, config, previousMessages = [] }) {
+  if (config.provider === "gemini") {
+    return generateGeminiCommitMessage({ diff, config, previousMessages });
+  }
+
+  if (config.provider === "openai") {
+    return generateOpenAICommitMessage({ diff, config, previousMessages });
+  }
+
+  throw new CommitlyError(`${config.provider} is not a supported AI provider.`);
+}
+
+async function generateOpenAICommitMessage({ diff, config, previousMessages = [] }) {
   if (!process.env.OPENAI_API_KEY) {
     throw new MissingApiKeyError();
   }
@@ -27,6 +40,33 @@ export async function generateCommitMessage({ diff, config, previousMessages = [
     }
 
     throw normalizeOpenAIError(error);
+  }
+}
+
+async function generateGeminiCommitMessage({ diff, config, previousMessages = [] }) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new MissingGeminiApiKeyError();
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: config.model,
+      contents: `${buildInstructions(config)}\n\n${buildUserPrompt({ diff, config, previousMessages })}`,
+      config: {
+        maxOutputTokens: 120,
+        temperature: 0.2,
+      },
+    });
+
+    return cleanCommitMessage(response.text, config);
+  } catch (error) {
+    if (error instanceof CommitlyError) {
+      throw error;
+    }
+
+    throw normalizeGeminiError(error);
   }
 }
 
@@ -165,6 +205,45 @@ function normalizeOpenAIError(error) {
   });
 }
 
+function normalizeGeminiError(error) {
+  const detail = getGeminiErrorDetail(error);
+  const status = error?.status || error?.code;
+
+  if (status === 400) {
+    return new CommitlyError(`Gemini rejected the request. ${detail}`, {
+      cause: error,
+    });
+  }
+
+  if (status === 401 || status === 403) {
+    return new CommitlyError(`Gemini rejected the API key or project access. ${detail}`, {
+      cause: error,
+    });
+  }
+
+  if (status === 404) {
+    return new CommitlyError(`Gemini could not find the configured model. ${detail}`, {
+      cause: error,
+    });
+  }
+
+  if (status === 429) {
+    return new CommitlyError(`Gemini returned a free-tier rate or quota limit. ${detail}`, {
+      cause: error,
+    });
+  }
+
+  if (NETWORK_ERROR_CODES.has(error?.code)) {
+    return new CommitlyError("Network error while calling Gemini. Check your connection and try again.", {
+      cause: error,
+    });
+  }
+
+  return new CommitlyError(`Gemini request failed: ${error?.message || "unknown error"}`, {
+    cause: error,
+  });
+}
+
 function getOpenAIErrorDetail(error) {
   const code = error?.code || error?.error?.code || error?.body?.error?.code;
   const type = error?.type || error?.error?.type || error?.body?.error?.type;
@@ -184,4 +263,25 @@ function getOpenAIErrorDetail(error) {
   }
 
   return pieces.length ? pieces.join("; ") : "Check OpenAI usage, billing, limits, and model access.";
+}
+
+function getGeminiErrorDetail(error) {
+  const code = error?.code || error?.status;
+  const statusText = error?.statusText;
+  const message = error?.message || error?.error?.message;
+  const pieces = [];
+
+  if (code) {
+    pieces.push(`code=${code}`);
+  }
+
+  if (statusText) {
+    pieces.push(`status=${statusText}`);
+  }
+
+  if (message) {
+    pieces.push(`message="${message}"`);
+  }
+
+  return pieces.length ? pieces.join("; ") : "Check Gemini API key, free-tier limits, and model access.";
 }

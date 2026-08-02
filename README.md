@@ -17,17 +17,23 @@ npm link
 
 ## Setup
 
-Commitly uses the OpenAI Responses API.
+Commitly uses Gemini by default. Create a free Gemini API key in Google AI Studio:
+
+```text
+https://aistudio.google.com/apikey
+```
 
 ```sh
-export OPENAI_API_KEY="your-api-key"
+export GEMINI_API_KEY="your-api-key"
 ```
 
 PowerShell:
 
 ```powershell
-$env:OPENAI_API_KEY="your-api-key"
+$env:GEMINI_API_KEY="your-api-key"
 ```
+
+OpenAI is still available as an optional provider with `--provider openai`.
 
 ## Usage
 
@@ -55,10 +61,17 @@ No-cost offline mode:
 commitly --offline --dry-run
 ```
 
+Pick a provider:
+
+```sh
+commitly --provider gemini --dry-run
+commitly --provider openai --dry-run
+```
+
 Pick a model:
 
 ```sh
-commitly --model gpt-5.6-luna
+commitly --model gemini-2.5-flash
 ```
 
 Commit immediately with the first suggestion:
@@ -93,7 +106,8 @@ Create `.commitlyrc` in the repo where you run Commitly:
   "typesAllowed": ["feat", "fix", "docs", "refactor", "test", "chore"],
   "maxLength": 72,
   "maxDiffChars": 12000,
-  "model": "gpt-5.6-luna",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
   "reasoningEffort": "none"
 }
 ```
@@ -103,10 +117,11 @@ Options:
 - `typesAllowed`: Conventional Commit types the model may use
 - `maxLength`: maximum length for the generated one-line message
 - `maxDiffChars`: maximum diff characters sent to the model
-- `model`: default OpenAI model
-- `reasoningEffort`: model reasoning effort; `none` is fast and cheap for commit messages
+- `provider`: `gemini`, `openai`, or `offline`
+- `model`: default model for the selected provider
+- `reasoningEffort`: OpenAI reasoning effort; ignored by Gemini and offline mode
 
-`COMMITLY_MODEL` and `--model` override the config model.
+`COMMITLY_PROVIDER`, `COMMITLY_MODEL`, `--provider`, and `--model` override config values.
 
 ## Friendly Errors
 
@@ -115,19 +130,21 @@ Commitly stops early with readable errors when:
 - no files are staged
 - Git is missing
 - the command is not run inside a Git repository
+- `GEMINI_API_KEY` is missing or invalid
 - `OPENAI_API_KEY` is missing or invalid
-- OpenAI rate limits or network failures happen
+- Gemini/OpenAI rate limits or network failures happen
 - `.commitlyrc` contains invalid JSON
 
-Use `--offline` when you want Commitly to generate a local heuristic message without an OpenAI API key.
+Use `--offline` when you want Commitly to generate a local heuristic message without any API key.
 
 ## Publish Checklist
 
 - Run `npm test`
 - Run `npm run verify`
 - Run `commitly --help`
-- Test `commitly --dry-run` in a real repo with staged changes
+- Test `commitly --offline --dry-run` in a real repo with staged changes
+- Test `commitly --provider gemini --dry-run` when `GEMINI_API_KEY` is available
 - Record `docs/demo.gif`
 - Confirm the package name is available
 - Run `npm publish`
-- Test `npm install -g commitly` in a clean terminal
+- Test `npm install -g commitly-ai` in a clean terminal

@@ -35,6 +35,7 @@
     ".commitlyrc.example"
   ],
   "dependencies": {
+    "@google/genai": "^2.15.0",
     "commander": "^15.0.0",
     "openai": "^7.3.0"
   }

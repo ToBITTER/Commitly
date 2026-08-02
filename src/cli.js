@@ -12,11 +12,13 @@ export async function runCommitly(options = {}) {
     cwd,
     configPath: options.config,
     modelOverride: options.model,
+    providerOverride: options.provider,
   });
   const diff = await getStagedDiff({ cwd });
   const previousMessages = [];
+  const useOffline = options.offline || config.provider === "offline";
   const generateMessage = () =>
-    options.offline
+    useOffline
       ? generateOfflineCommitMessage({ diff, config, previousMessages })
       : generateCommitMessage({ diff, config, previousMessages });
   let message = await generateMessage();

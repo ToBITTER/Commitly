@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanCommitMessage } from "../src/llm.js";
+import { cleanCommitMessage, generateCommitMessage } from "../src/llm.js";
 import { DEFAULT_CONFIG } from "../src/config.js";
+import { MissingGeminiApiKeyError } from "../src/errors.js";
 
 test("cleanCommitMessage extracts a conventional commit from model chatter", () => {
   const message = cleanCommitMessage(
@@ -29,4 +30,28 @@ test("cleanCommitMessage enforces max length", () => {
 
   assert.equal(message.length <= 24, true);
   assert.equal(message, "feat: add a very");
+});
+
+test("generateCommitMessage requires GEMINI_API_KEY for Gemini provider", async () => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+
+  try {
+    await assert.rejects(
+      () =>
+        generateCommitMessage({
+          diff: "diff --git a/a.txt b/a.txt\n+hello",
+          config: {
+            ...DEFAULT_CONFIG,
+            provider: "gemini",
+            model: "gemini-2.5-flash",
+          },
+        }),
+      MissingGeminiApiKeyError,
+    );
+  } finally {
+    if (originalKey) {
+      process.env.GEMINI_API_KEY = originalKey;
+    }
+  }
 });

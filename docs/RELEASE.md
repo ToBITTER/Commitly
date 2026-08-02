@@ -4,7 +4,7 @@ Commitly ships as the `commitly-ai` npm package and installs a `commitly` termin
 
 ## Before Publishing
 
-1. Confirm `OPENAI_API_KEY` works locally.
+1. Confirm `GEMINI_API_KEY` works locally, or use `--offline` for a no-key demo.
 2. Stage a real change in a Git repository.
 3. Run:
 
@@ -13,7 +13,7 @@ npm run verify
 node ./bin/commitly.js --offline --dry-run
 ```
 
-4. Run `node ./bin/commitly.js --dry-run` when OpenAI billing/quota is available.
+4. Run `node ./bin/commitly.js --provider gemini --dry-run` when a Gemini key is available.
 5. Record `docs/demo.gif` after a successful offline or live run.
 6. Commit and push the repo to GitHub.
 
@@ -55,5 +55,6 @@ commitly --help
 Then test in a clean Git repository with staged changes:
 
 ```sh
-commitly --dry-run
+commitly --offline --dry-run
+commitly --provider gemini --dry-run
 ```
