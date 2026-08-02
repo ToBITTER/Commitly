@@ -19,6 +19,7 @@ program
   .description("Generate Conventional Commit messages from staged git changes.")
   .version(packageJson.version)
   .option("--dry-run", "print the generated message without committing")
+  .option("--offline", "generate a message locally without calling OpenAI")
   .option("-c, --config <path>", "path to a .commitlyrc JSON config file")
   .option("-m, --model <model>", "OpenAI model to use")
   .option("-y, --yes", "accept the first generated message without prompting")

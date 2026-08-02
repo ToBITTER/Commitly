@@ -4,6 +4,7 @@ import { loadConfig } from "./config.js";
 import { CommitlyError } from "./errors.js";
 import { commitStagedChanges, getStagedDiff } from "./git.js";
 import { generateCommitMessage } from "./llm.js";
+import { generateOfflineCommitMessage } from "./offline.js";
 
 export async function runCommitly(options = {}) {
   const cwd = process.cwd();
@@ -14,7 +15,11 @@ export async function runCommitly(options = {}) {
   });
   const diff = await getStagedDiff({ cwd });
   const previousMessages = [];
-  let message = await generateCommitMessage({ diff, config, previousMessages });
+  const generateMessage = () =>
+    options.offline
+      ? generateOfflineCommitMessage({ diff, config, previousMessages })
+      : generateCommitMessage({ diff, config, previousMessages });
+  let message = await generateMessage();
 
   if (options.dryRun) {
     console.log(message);
@@ -52,7 +57,7 @@ export async function runCommitly(options = {}) {
 
       if (action === "regenerate") {
         previousMessages.push(message);
-        message = await generateCommitMessage({ diff, config, previousMessages });
+        message = await generateMessage();
         continue;
       }
 

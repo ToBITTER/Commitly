@@ -49,6 +49,12 @@ Dry run:
 commitly --dry-run
 ```
 
+No-cost offline mode:
+
+```sh
+commitly --offline --dry-run
+```
+
 Pick a model:
 
 ```sh
@@ -112,6 +118,8 @@ Commitly stops early with readable errors when:
 - `OPENAI_API_KEY` is missing or invalid
 - OpenAI rate limits or network failures happen
 - `.commitlyrc` contains invalid JSON
+
+Use `--offline` when you want Commitly to generate a local heuristic message without an OpenAI API key.
 
 ## Publish Checklist
 

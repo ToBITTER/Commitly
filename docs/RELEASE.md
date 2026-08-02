@@ -10,11 +10,12 @@ Commitly ships as the `commitly-ai` npm package and installs a `commitly` termin
 
 ```sh
 npm run verify
-node ./bin/commitly.js --dry-run
+node ./bin/commitly.js --offline --dry-run
 ```
 
-4. Record `docs/demo.gif` after a successful live run.
-5. Commit and push the repo to GitHub.
+4. Run `node ./bin/commitly.js --dry-run` when OpenAI billing/quota is available.
+5. Record `docs/demo.gif` after a successful offline or live run.
+6. Commit and push the repo to GitHub.
 
 ## GitHub
 
