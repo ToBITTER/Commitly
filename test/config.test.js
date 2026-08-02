@@ -12,8 +12,7 @@ test("loadConfig returns defaults without a config file", async () => {
     const config = await loadConfig({ cwd: directory });
     assert.deepEqual(config.typesAllowed, DEFAULT_CONFIG.typesAllowed);
     assert.equal(config.maxLength, DEFAULT_CONFIG.maxLength);
-    assert.equal(config.provider, DEFAULT_CONFIG.provider);
-    assert.equal(config.model, DEFAULT_CONFIG.model);
+    assert.equal(config.maxDiffChars, DEFAULT_CONFIG.maxDiffChars);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -29,8 +28,6 @@ test("loadConfig reads .commitlyrc from the working tree", async () => {
         typesAllowed: ["feat", "fix"],
         maxLength: 50,
         maxDiffChars: 2000,
-        provider: "gemini",
-        model: "custom-model",
       }),
     );
 
@@ -38,28 +35,6 @@ test("loadConfig reads .commitlyrc from the working tree", async () => {
     assert.deepEqual(config.typesAllowed, ["feat", "fix"]);
     assert.equal(config.maxLength, 50);
     assert.equal(config.maxDiffChars, 2000);
-    assert.equal(config.provider, "gemini");
-    assert.equal(config.model, "custom-model");
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test("loadConfig uses provider default model when provider is overridden", async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "commitly-config-"));
-
-  try {
-    await writeFile(
-      path.join(directory, ".commitlyrc"),
-      JSON.stringify({
-        provider: "gemini",
-        model: "gemini-custom",
-      }),
-    );
-
-    const config = await loadConfig({ cwd: directory, providerOverride: "openai" });
-    assert.equal(config.provider, "openai");
-    assert.equal(config.model, "gpt-5.6-luna");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

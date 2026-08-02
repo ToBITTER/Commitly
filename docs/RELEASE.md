@@ -4,25 +4,23 @@ Commitly ships as the `commitly-ai` npm package and installs a `commitly` termin
 
 ## Before Publishing
 
-1. Confirm `GEMINI_API_KEY` works locally, or use `--offline` for a no-key demo.
-2. Stage a real change in a Git repository.
-3. Run:
+1. Stage a real change in a Git repository.
+2. Run:
 
 ```sh
 npm run verify
-node ./bin/commitly.js --offline --dry-run
+node ./bin/commitly.js --dry-run
 ```
 
-4. Run `node ./bin/commitly.js --provider gemini --dry-run` when a Gemini key is available.
-5. Record `docs/demo.gif` after a successful offline or live run.
-6. Commit and push the repo to GitHub.
+3. Record `docs/demo.gif` after a successful run.
+4. Commit and push the repo to GitHub.
 
 ## GitHub
 
 ```sh
 git init
 git add .
-git commit -m "feat: scaffold ai commit cli"
+git commit -m "feat: scaffold local commit cli"
 gh repo create commitly --public --source . --remote origin --push
 ```
 
@@ -55,6 +53,5 @@ commitly --help
 Then test in a clean Git repository with staged changes:
 
 ```sh
-commitly --offline --dry-run
-commitly --provider gemini --dry-run
+commitly --dry-run
 ```
