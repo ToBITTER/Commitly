@@ -13,8 +13,5 @@
     "revert"
   ],
   "maxLength": 72,
-  "maxDiffChars": 12000,
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
-  "reasoningEffort": "none"
+  "maxDiffChars": 12000
 }

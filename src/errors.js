@@ -13,17 +13,3 @@ export class EmptyDiffError extends CommitlyError {
     this.name = "EmptyDiffError";
   }
 }
-
-export class MissingApiKeyError extends CommitlyError {
-  constructor() {
-    super("Missing OPENAI_API_KEY. Set it in your shell before running commitly.");
-    this.name = "MissingApiKeyError";
-  }
-}
-
-export class MissingGeminiApiKeyError extends CommitlyError {
-  constructor() {
-    super("Missing GEMINI_API_KEY. Create a free key in Google AI Studio, then set it in your shell.");
-    this.name = "MissingGeminiApiKeyError";
-  }
-}

@@ -16,13 +16,10 @@ const program = new Command();
 
 program
   .name("commitly")
-  .description("Generate Conventional Commit messages from staged git changes.")
+  .description("Generate local Conventional Commit messages from staged git changes.")
   .version(packageJson.version)
   .option("--dry-run", "print the generated message without committing")
-  .option("--offline", "generate a message locally without calling an AI provider")
-  .option("-p, --provider <provider>", "AI provider to use: gemini, openai, or offline")
   .option("-c, --config <path>", "path to a .commitlyrc JSON config file")
-  .option("-m, --model <model>", "AI model to use for the selected provider")
   .option("-y, --yes", "accept the first generated message without prompting")
   .action(async (options) => {
     await runCommitly(options);

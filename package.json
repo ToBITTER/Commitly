@@ -1,7 +1,7 @@
 {
   "name": "commitly-ai",
   "version": "1.0.0",
-  "description": "AI-powered Conventional Commit messages from your staged git diff.",
+  "description": "Local Conventional Commit messages from your staged git diff.",
   "type": "module",
   "bin": {
     "commitly": "bin/commitly.js"
@@ -16,7 +16,6 @@
     "prepublishOnly": "npm run verify"
   },
   "keywords": [
-    "ai",
     "cli",
     "commit",
     "conventional-commits",
@@ -35,8 +34,6 @@
     ".commitlyrc.example"
   ],
   "dependencies": {
-    "@google/genai": "^2.15.0",
-    "commander": "^15.0.0",
-    "openai": "^7.3.0"
+    "commander": "^15.0.0"
   }
 }

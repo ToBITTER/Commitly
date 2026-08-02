@@ -2,12 +2,6 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { CommitlyError } from "./errors.js";
 
-const ALLOWED_PROVIDERS = ["gemini", "openai", "offline"];
-const DEFAULT_MODELS = Object.freeze({
-  gemini: "gemini-2.5-flash",
-  openai: "gpt-5.6-luna",
-});
-
 export const DEFAULT_CONFIG = Object.freeze({
   typesAllowed: [
     "feat",
@@ -24,40 +18,20 @@ export const DEFAULT_CONFIG = Object.freeze({
   ],
   maxLength: 72,
   maxDiffChars: 12000,
-  provider: "gemini",
-  model: DEFAULT_MODELS.gemini,
-  reasoningEffort: "none",
 });
 
 export async function loadConfig({
   cwd = process.cwd(),
   configPath,
-  modelOverride,
-  providerOverride,
 } = {}) {
   const discoveredPath = await resolveConfigPath({ cwd, configPath });
   const fileConfig = discoveredPath ? await readConfigFile(discoveredPath) : {};
-  const providerFromOverride = providerOverride || process.env.COMMITLY_PROVIDER;
-  const provider = normalizeProvider(providerFromOverride || fileConfig.provider || DEFAULT_CONFIG.provider);
-  const shouldUseFileModel = !providerFromOverride && typeof fileConfig.model === "string";
   const merged = {
     ...DEFAULT_CONFIG,
     ...fileConfig,
-    provider,
-    model:
-      modelOverride ||
-      process.env.COMMITLY_MODEL ||
-      (shouldUseFileModel ? fileConfig.model : DEFAULT_MODELS[provider]) ||
-      DEFAULT_CONFIG.model,
   };
 
   return validateConfig(merged, discoveredPath);
-}
-
-function normalizeProvider(provider) {
-  return String(provider || "")
-    .trim()
-    .toLowerCase();
 }
 
 async function resolveConfigPath({ cwd, configPath }) {
@@ -143,29 +117,9 @@ function validateConfig(config, configPath) {
     throw new CommitlyError(`${source}: maxDiffChars must be an integer from 1000 to 200000.`);
   }
 
-  if (!ALLOWED_PROVIDERS.includes(config.provider)) {
-    throw new CommitlyError(`${source}: provider must be one of gemini, openai, offline.`);
-  }
-
-  if (typeof config.model !== "string" || config.model.trim() === "") {
-    throw new CommitlyError(`${source}: model must be a non-empty string.`);
-  }
-
-  if (
-    typeof config.reasoningEffort !== "string" ||
-    !["none", "low", "medium", "high", "xhigh", "max"].includes(config.reasoningEffort)
-  ) {
-    throw new CommitlyError(
-      `${source}: reasoningEffort must be one of none, low, medium, high, xhigh, max.`,
-    );
-  }
-
   return {
     typesAllowed,
     maxLength: config.maxLength,
     maxDiffChars: config.maxDiffChars,
-    provider: config.provider,
-    model: config.model.trim(),
-    reasoningEffort: config.reasoningEffort,
   };
 }
