@@ -1,20 +1,21 @@
 ﻿# RentSplit
 
-RentSplit is a backend API for roommates who share rent, utilities, groceries, and other house expenses.
+RentSplit is a responsive web app for roommates who share rent, utilities, groceries, and other household expenses.
 
-It tracks who paid, who participated, how much each person owes, and the smallest set of payments needed to settle up.
+It tracks who paid, who participated, how much each person owes, and a compact payment plan that settles the household. The browser dashboard and JSON API run together from one dependency-free Node server.
 
-## What this project proves
+## Highlights
 
-- Multi-user data modeling: users, households, memberships, expenses, shares, and payments
-- Settlement logic: calculates who owes who from all expenses and payments
-- Reminder logic: creates reminder digests for outstanding balances
-- API design: clean JSON endpoints with validation and friendly errors
-- Local persistence: stores development data in `data/rentsplit.json`
+- Responsive dashboard for onboarding, expenses, roommates, balances, reminders, and payments
+- Multi-household switching with currency-aware formatting
+- Settlement logic that calculates who owes whom after expenses and payments
+- Friendly validation and durable, concurrency-safe local persistence
+- Installable web app shell with no frontend build step or third-party runtime dependencies
 
 ## Tech Stack
 
 - Node.js 22+
+- Semantic HTML, modern CSS, and vanilla JavaScript
 - Native HTTP server, no framework dependency
 - Node test runner
 - JSON file storage for local development
@@ -26,13 +27,13 @@ npm install
 npm start
 ```
 
-The API runs on:
+The web app runs on:
 
 ```txt
 http://localhost:3000
 ```
 
-Health check:
+Open that address in your browser. The API health check is available at:
 
 ```sh
 curl http://localhost:3000/health
@@ -104,6 +105,7 @@ Result: Ben owes Ada `NGN 100000.00`.
 | `POST` | `/households/:id/expenses` | Add shared expense |
 | `GET` | `/households/:id/expenses` | List expenses |
 | `POST` | `/households/:id/payments` | Record settlement payment |
+| `GET` | `/households/:id/payments` | List settlement payments |
 | `GET` | `/households/:id/balances` | Calculate who owes who |
 | `GET` | `/households/:id/reminders?asOf=YYYY-MM-DD` | Build reminder digest |
 
@@ -124,10 +126,10 @@ PORT=3000
 RENTSPLIT_DATA_FILE=./data/rentsplit.json
 ```
 
-## Next Features
+## Potential Next Features
 
 - Authentication
 - PostgreSQL database adapter
 - Scheduled email/WhatsApp reminders
 - Recurring rent and utility bills
-- Frontend dashboard
+- CSV/PDF exports

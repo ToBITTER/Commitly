@@ -235,12 +235,15 @@ function renderReminders() {
     container.innerHTML = `<div class="reminder-item"><svg class="icon"><use href="#icon-check"/></svg><div><strong>No reminders needed</strong><p>Your household has no outstanding balances today.</p></div></div>`;
     return;
   }
-  container.innerHTML = reminders.slice(0, 3).map((reminder) => `
-    <div class="reminder-item">
-      <svg class="icon"><use href="#icon-bell"/></svg>
-      <div><strong>${escapeHtml(reminder.userName)}</strong><p>${escapeHtml(reminder.message)}${reminder.dueExpenseIds.length ? ` ${plural(reminder.dueExpenseIds.length, "due expense")} included.` : ""}</p></div>
-    </div>
-  `).join("");
+  container.innerHTML = reminders.slice(0, 3).map((reminder) => {
+    const message = reminder.message.replace(`${reminder.currency} ${reminder.amount}`, formatMoney(reminder.amount, reminder.currency));
+    return `
+      <div class="reminder-item">
+        <svg class="icon"><use href="#icon-bell"/></svg>
+        <div><strong>${escapeHtml(reminder.userName)}</strong><p>${escapeHtml(message)}${reminder.dueExpenseIds.length ? ` ${plural(reminder.dueExpenseIds.length, "due expense")} included.` : ""}</p></div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderExpenseTable() {

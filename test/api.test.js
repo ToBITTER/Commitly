@@ -38,6 +38,15 @@ test("HTTP API creates roommates, expenses, and balances", async () => {
         amount: "10000.00",
       },
     ]);
+    await post(baseUrl, `/households/${household.id}/payments`, {
+      fromUserId: ben.id,
+      toUserId: ada.id,
+      amount: "10000.00",
+      note: "Fuel balance",
+    });
+    const payments = await get(baseUrl, `/households/${household.id}/payments`);
+    assert.equal(payments.length, 1);
+    assert.equal(payments[0].note, "Fuel balance");
   } finally {
     server.close();
   }
@@ -58,6 +67,37 @@ test("HTTP API returns friendly validation errors", async () => {
     assert.equal(response.status, 400);
     assert.equal(payload.error.code, "bad_request");
     assert.match(payload.error.message, /name must be 2-80 characters/);
+
+    const arrayResponse = await fetch(`${baseUrl}/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "[]",
+    });
+    const arrayPayload = await arrayResponse.json();
+    assert.equal(arrayResponse.status, 400);
+    assert.equal(arrayPayload.error.code, "invalid_body");
+  } finally {
+    server.close();
+  }
+});
+
+test("HTTP server delivers the browser application", async () => {
+  const server = createServer(createApp({ store: new MemoryStore() }));
+  server.listen(0);
+  await once(server, "listening");
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const pageResponse = await fetch(baseUrl);
+    const page = await pageResponse.text();
+    assert.equal(pageResponse.status, 200);
+    assert.match(pageResponse.headers.get("content-type"), /text\/html/);
+    assert.match(page, /RentSplit — Shared home finances/);
+
+    const scriptResponse = await fetch(`${baseUrl}/app.js`);
+    const script = await scriptResponse.text();
+    assert.equal(scriptResponse.status, 200);
+    assert.match(scriptResponse.headers.get("content-type"), /text\/javascript/);
+    assert.match(script, /async function saveExpense/);
   } finally {
     server.close();
   }

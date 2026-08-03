@@ -114,3 +114,30 @@ test("builds reminder digest from outstanding settlements", async () => {
   assert.match(digest.reminders[0].message, /Ben owes Ada NGN 3000\.00/);
   assert.deepEqual(digest.reminders[0].dueExpenseIds, ["exp_1"]);
 });
+
+test("rejects impossible calendar dates", async () => {
+  const { store, ada, household } = await seedThreeRoommates();
+  await assert.rejects(
+    createExpense(store, household.id, {
+      description: "Invalid bill",
+      amount: "1000.00",
+      paidByUserId: ada.id,
+      participantUserIds: [ada.id],
+      dueDate: "2026-02-30",
+    }),
+    /dueDate must be a real calendar date/,
+  );
+});
+
+test("serializes concurrent writes without losing records", async () => {
+  const store = new MemoryStore();
+  await Promise.all(
+    Array.from({ length: 20 }, (_, index) => createUser(store, {
+      name: `Roommate ${index}`,
+      email: `roommate${index}@example.com`,
+    })),
+  );
+  const data = await store.read();
+  assert.equal(data.users.length, 20);
+  assert.equal(new Set(data.users.map((user) => user.id)).size, 20);
+});

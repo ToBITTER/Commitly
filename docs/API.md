@@ -9,6 +9,16 @@
 - ExpenseShare: each participant's portion of an expense.
 - Payment: a settlement transfer from one roommate to another.
 
+## Routes
+
+- `GET /users` and `POST /users`
+- `GET /households` and `POST /households`
+- `GET /households/:id` and `POST /households/:id/members`
+- `GET /households/:id/expenses` and `POST /households/:id/expenses`
+- `GET /households/:id/payments` and `POST /households/:id/payments`
+- `GET /households/:id/balances`
+- `GET /households/:id/reminders?asOf=YYYY-MM-DD`
+
 ## Balance Formula
 
 For each household member:

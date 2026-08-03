@@ -1,7 +1,7 @@
 ﻿{
   "name": "rentsplit-api",
   "version": "1.0.0",
-  "description": "Roommate rent, utility, expense splitting, balance settlement, and reminder API.",
+  "description": "Responsive roommate expense-splitting web app with balances, settlements, reminders, and a local API.",
   "type": "module",
   "bin": {
     "rentsplit": "bin/rentsplit.js"
@@ -21,13 +21,13 @@
     "backend",
     "api"
   ],
-  "author": "",
   "license": "MIT",
   "engines": {
     "node": ">=22.12.0"
   },
   "files": [
     "bin",
+    "public",
     "src",
     "scripts",
     "docs",
