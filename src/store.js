@@ -1,5 +1,6 @@
 ﻿import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { rename, rm } from "node:fs/promises";
 
 export function createEmptyData() {
   return {
@@ -23,6 +24,7 @@ export function createEmptyData() {
 export class MemoryStore {
   constructor(seed = createEmptyData()) {
     this.data = clone(seed);
+    this.mutationQueue = Promise.resolve();
   }
 
   async read() {
@@ -33,11 +35,15 @@ export class MemoryStore {
     this.data = clone(nextData);
   }
 
-  async mutate(mutator) {
-    const nextData = await this.read();
-    const result = await mutator(nextData);
-    await this.write(nextData);
-    return result;
+  mutate(mutator) {
+    const mutation = this.mutationQueue.then(async () => {
+      const nextData = await this.read();
+      const result = await mutator(nextData);
+      await this.write(nextData);
+      return result;
+    });
+    this.mutationQueue = mutation.catch(() => undefined);
+    return mutation;
   }
 }
 
@@ -60,8 +66,16 @@ export class JsonFileStore extends MemoryStore {
   }
 
   async write(nextData) {
-    await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, `${JSON.stringify(nextData, null, 2)}\n`, "utf8");
+    const directory = path.dirname(this.filePath);
+    const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+    await mkdir(directory, { recursive: true });
+    await writeFile(temporaryPath, `${JSON.stringify(nextData, null, 2)}\n`, "utf8");
+    try {
+      await rename(temporaryPath, this.filePath);
+    } catch (error) {
+      await rm(temporaryPath, { force: true });
+      throw error;
+    }
   }
 }
 

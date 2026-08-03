@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#17251f">
+    <meta name="description" content="Split household expenses, see balances, and settle up without the awkward maths.">
+    <title>RentSplit — Shared home finances</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+      <symbol id="icon-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+      <symbol id="icon-settle" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4M3 7h18M7 21l-4-4 4-4M21 17H3"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+      <symbol id="icon-wallet" viewBox="0 0 24 24"><path d="M20 7V5H5a3 3 0 0 0 0 6h15v8H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h13M16 15h2"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="icon-building" viewBox="0 0 24 24"><path d="M3 21h18M6 21V3h12v18M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-5h4v5"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+      <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">R</span>
+          <span>RentSplit</span>
+        </div>
+
+        <div class="household-switcher">
+          <label for="household-select">Current household</label>
+          <div class="select-shell select-shell-dark">
+            <svg class="icon"><use href="#icon-building"/></svg>
+            <select id="household-select" aria-label="Choose household">
+              <option value="">No household yet</option>
+            </select>
+          </div>
+          <button class="sidebar-link" type="button" data-open-dialog="household-dialog">
+            <svg class="icon"><use href="#icon-plus"/></svg>
+            New household
+          </button>
+        </div>
+
+        <nav class="primary-nav" aria-label="Main navigation">
+          <button class="nav-item is-active" type="button" data-view="overview">
+            <svg class="icon"><use href="#icon-home"/></svg>
+            Overview
+          </button>
+          <button class="nav-item" type="button" data-view="expenses">
+            <svg class="icon"><use href="#icon-receipt"/></svg>
+            Expenses
+          </button>
+          <button class="nav-item" type="button" data-view="people">
+            <svg class="icon"><use href="#icon-users"/></svg>
+            People
+          </button>
+          <button class="nav-item" type="button" data-view="settle">
+            <svg class="icon"><use href="#icon-settle"/></svg>
+            Settle up
+          </button>
+        </nav>
+
+        <div class="sidebar-tip">
+          <span class="tip-icon"><svg class="icon"><use href="#icon-check"/></svg></span>
+          <div><strong>Private by default</strong><span>Your data stays on this server.</span></div>
+        </div>
+
+        <div class="sync-state" id="sync-state">
+          <span class="sync-dot"></span>
+          <span>Connecting…</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="topbar-title">
+            <button class="mobile-menu" type="button" id="mobile-menu" aria-label="Open navigation" aria-expanded="false">
+              <svg class="icon"><use href="#icon-menu"/></svg>
+            </button>
+            <div>
+              <p class="eyebrow" id="view-eyebrow">Your shared home</p>
+              <h1 id="view-title">Overview</h1>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="button button-quiet" type="button" data-open-dialog="person-dialog">
+              <svg class="icon"><use href="#icon-users"/></svg>
+              <span>Add roommate</span>
+            </button>
+            <button class="button button-primary" type="button" data-open-dialog="expense-dialog">
+              <svg class="icon"><use href="#icon-plus"/></svg>
+              <span>Add expense</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="loading-state" id="loading-state" aria-live="polite">
+          <span class="spinner"></span>
+          <p>Getting your household ready…</p>
+        </section>
+
+        <section class="setup-state is-hidden" id="setup-state">
+          <div class="setup-art" aria-hidden="true">
+            <span class="setup-house"><svg class="icon"><use href="#icon-home"/></svg></span>
+            <span class="setup-coin setup-coin-one">₦</span>
+            <span class="setup-coin setup-coin-two">$</span>
+          </div>
+          <p class="eyebrow">A calmer way to share costs</p>
+          <h2 id="setup-title">Let’s set up your home</h2>
+          <p id="setup-copy">Create your profile first, then start a household and invite your roommates.</p>
+          <div class="setup-actions" id="setup-actions"></div>
+          <div class="setup-steps">
+            <span><b>1</b>Create your profile</span>
+            <span><b>2</b>Start a household</span>
+            <span><b>3</b>Add the first expense</span>
+          </div>
+        </section>
+
+        <div class="dashboard is-hidden" id="dashboard">
+          <section class="view-panel" data-view-panel="overview">
+            <article class="hero-card">
+              <div class="hero-copy">
+                <span class="hero-kicker"><svg class="icon"><use href="#icon-wallet"/></svg>Household balance</span>
+                <h2 id="hero-amount">NGN 0.00</h2>
+                <p id="hero-message">Everyone is settled up.</p>
+                <div class="hero-actions">
+                  <button class="button button-light" type="button" data-view="settle">View settlement plan</button>
+                  <button class="button button-ghost-light" type="button" data-open-dialog="payment-dialog">Record payment</button>
+                </div>
+              </div>
+              <div class="hero-visual" aria-hidden="true">
+                <span class="hero-orbit hero-orbit-one"></span>
+                <span class="hero-orbit hero-orbit-two"></span>
+                <span class="hero-wallet"><svg class="icon"><use href="#icon-wallet"/></svg></span>
+                <span class="hero-check"><svg class="icon"><use href="#icon-check"/></svg></span>
+              </div>
+            </article>
+
+            <div class="stat-grid" id="stat-grid"></div>
+
+            <div class="content-grid">
+              <article class="card recent-card">
+                <div class="card-header">
+                  <div><p class="eyebrow">Activity</p><h2>Recent expenses</h2></div>
+                  <button class="text-button" type="button" data-view="expenses">View all <svg class="icon"><use href="#icon-arrow"/></svg></button>
+                </div>
+                <div id="recent-expenses"></div>
+              </article>
+
+              <article class="card settle-card">
+                <div class="card-header">
+                  <div><p class="eyebrow">Smart split</p><h2>Who pays whom</h2></div>
+                  <span class="soft-badge" id="settlement-count">0 payments</span>
+                </div>
+                <div id="settlement-preview"></div>
+              </article>
+            </div>
+
+            <article class="card reminders-card">
+              <div class="card-header">
+                <div><p class="eyebrow">Friendly nudges</p><h2>Payment reminders</h2></div>
+                <span class="date-chip"><svg class="icon"><use href="#icon-calendar"/></svg><span id="as-of-date"></span></span>
+              </div>
+              <div class="reminder-grid" id="reminder-list"></div>
+            </article>
+          </section>
+
+          <section class="view-panel is-hidden" data-view-panel="expenses">
+            <div class="section-heading">
+              <div><p class="eyebrow">Household activity</p><h2>All expenses</h2><p>Every shared cost, split and payer in one place.</p></div>
+              <div class="search-field"><svg class="icon"><use href="#icon-search"/></svg><input id="expense-search" type="search" placeholder="Search expenses"></div>
+            </div>
+            <article class="card table-card">
+              <div class="expense-table" id="expense-table"></div>
+            </article>
+          </section>
+
+          <section class="view-panel is-hidden" data-view-panel="people">
+            <div class="section-heading">
+              <div><p class="eyebrow">Your household</p><h2>Roommates</h2><p>See each person’s current position at a glance.</p></div>
+              <button class="button button-primary" type="button" data-open-dialog="person-dialog"><svg class="icon"><use href="#icon-plus"/></svg>Add roommate</button>
+            </div>
+            <div class="people-grid" id="people-grid"></div>
+          </section>
+
+          <section class="view-panel is-hidden" data-view-panel="settle">
+            <div class="section-heading">
+              <div><p class="eyebrow">Clear the balance</p><h2>Settle up</h2><p>A simple payment plan that brings everyone back to zero.</p></div>
+              <button class="button button-primary" type="button" data-open-dialog="payment-dialog"><svg class="icon"><use href="#icon-plus"/></svg>Record payment</button>
+            </div>
+            <div class="settle-layout">
+              <article class="card">
+                <div class="card-header"><div><p class="eyebrow">Recommended</p><h2>Payment plan</h2></div></div>
+                <div id="settlement-list"></div>
+              </article>
+              <article class="card">
+                <div class="card-header"><div><p class="eyebrow">Completed</p><h2>Payment history</h2></div></div>
+                <div id="payment-history"></div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <button class="is-active" type="button" data-view="overview"><svg class="icon"><use href="#icon-home"/></svg><span>Home</span></button>
+      <button type="button" data-view="expenses"><svg class="icon"><use href="#icon-receipt"/></svg><span>Expenses</span></button>
+      <button class="mobile-add" type="button" data-open-dialog="expense-dialog"><svg class="icon"><use href="#icon-plus"/></svg><span>Add</span></button>
+      <button type="button" data-view="people"><svg class="icon"><use href="#icon-users"/></svg><span>People</span></button>
+      <button type="button" data-view="settle"><svg class="icon"><use href="#icon-settle"/></svg><span>Settle</span></button>
+    </nav>
+
+    <dialog class="modal" id="person-dialog">
+      <form id="person-form">
+        <div class="modal-header">
+          <div><p class="eyebrow">People</p><h2 id="person-dialog-title">Add a roommate</h2><p id="person-dialog-copy">Create a profile and add them to this household.</p></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <label class="field is-hidden" id="existing-person-field">Add an existing person<select id="existing-user" name="existingUserId"><option value="new">Create someone new</option></select></label>
+          <div id="new-person-fields">
+            <label class="field">Full name<input name="name" type="text" minlength="2" maxlength="80" autocomplete="name" placeholder="e.g. Ada Okafor"></label>
+            <label class="field">Email address<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="ada@example.com"></label>
+            <label class="field">Phone <span>(optional)</span><input name="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="+234 800 000 0000"></label>
+          </div>
+          <label class="field is-hidden" id="person-role-field">Household role<select name="role"><option value="member">Member</option><option value="owner">Owner</option></select></label>
+        </div>
+        <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Save person</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="household-dialog">
+      <form id="household-form">
+        <div class="modal-header">
+          <div><p class="eyebrow">New space</p><h2>Create a household</h2><p>Choose a name, currency, and the first member.</p></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <label class="field">Household name<input name="name" type="text" minlength="2" maxlength="80" required placeholder="e.g. Lekki Apartment"></label>
+          <div class="field-row">
+            <label class="field">Currency<select name="currency" required><option value="NGN">NGN — Nigerian Naira</option><option value="USD">USD — US Dollar</option><option value="GBP">GBP — British Pound</option><option value="EUR">EUR — Euro</option><option value="GHS">GHS — Ghanaian Cedi</option><option value="KES">KES — Kenyan Shilling</option><option value="ZAR">ZAR — South African Rand</option></select></label>
+            <label class="field">First member<select id="household-owner" name="createdByUserId" required></select></label>
+          </div>
+          <p class="form-note" id="household-note">Create a person before starting a household.</p>
+        </div>
+        <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Create household</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="modal modal-wide" id="expense-dialog">
+      <form id="expense-form">
+        <div class="modal-header">
+          <div><p class="eyebrow">New expense</p><h2>Split a household cost</h2><p>Add the details and choose who shares it.</p></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <label class="field">Description<input name="description" type="text" minlength="2" maxlength="120" required placeholder="e.g. August rent"></label>
+          <div class="field-row">
+            <label class="field">Amount<div class="money-field"><span id="expense-currency">NGN</span><input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00"></div></label>
+            <label class="field">Category<select name="category"><option value="rent">Rent</option><option value="utilities">Utilities</option><option value="groceries">Groceries</option><option value="internet">Internet</option><option value="transport">Transport</option><option value="general">Other</option></select></label>
+          </div>
+          <div class="field-row">
+            <label class="field">Paid by<select id="expense-payer" name="paidByUserId" required></select></label>
+            <label class="field">Due date <span>(optional)</span><input name="dueDate" type="date"></label>
+          </div>
+          <fieldset class="participant-field"><legend>Split equally between</legend><div class="participant-grid" id="expense-participants"></div></fieldset>
+        </div>
+        <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Add expense</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="payment-dialog">
+      <form id="payment-form">
+        <div class="modal-header">
+          <div><p class="eyebrow">Settle up</p><h2>Record a payment</h2><p>Log money sent between two roommates.</p></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <div class="field-row"><label class="field">Paid by<select id="payment-from" name="fromUserId" required></select></label><label class="field">Paid to<select id="payment-to" name="toUserId" required></select></label></div>
+          <label class="field">Amount<div class="money-field"><span id="payment-currency">NGN</span><input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00"></div></label>
+          <label class="field">Note <span>(optional)</span><input name="note" type="text" maxlength="160" placeholder="e.g. Rent balance paid"></label>
+        </div>
+        <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Record payment</button></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast-icon"><svg class="icon"><use href="#icon-check"/></svg></span>
+      <span id="toast-message">Saved</span>
+    </div>
+  </body>
+</html>

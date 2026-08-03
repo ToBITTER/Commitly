@@ -6,6 +6,7 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ROLE_VALUES = new Set(["owner", "member"]);
 
 export async function createUser(store, payload) {
+  payload = requireObject(payload);
   return store.mutate((data) => {
     const name = requireText(payload.name, "name", 2, 80);
     const email = normalizeEmail(payload.email);
@@ -23,6 +24,7 @@ export async function listUsers(store) {
 }
 
 export async function createHousehold(store, payload) {
+  payload = requireObject(payload);
   return store.mutate((data) => {
     const name = requireText(payload.name, "name", 2, 80);
     const currency = normalizeCurrency(payload.currency || "NGN");
@@ -53,6 +55,7 @@ export async function getHousehold(store, householdId) {
 }
 
 export async function addMember(store, householdId, payload) {
+  payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
     const user = assertUser(data, payload.userId);
@@ -68,6 +71,7 @@ export async function addMember(store, householdId, payload) {
 }
 
 export async function createExpense(store, householdId, payload) {
+  payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
     const paidBy = assertMember(data, household.id, payload.paidByUserId);
@@ -104,6 +108,7 @@ export async function listExpenses(store, householdId) {
 }
 
 export async function recordPayment(store, householdId, payload) {
+  payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
     const fromMember = assertMember(data, household.id, payload.fromUserId);
@@ -123,6 +128,15 @@ export async function recordPayment(store, householdId, payload) {
   });
 }
 
+export async function listPayments(store, householdId) {
+  const data = await store.read();
+  const household = assertHousehold(data, householdId);
+  return data.payments
+    .filter((payment) => payment.householdId === household.id)
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt))
+    .map((payment) => serializePayment(payment, data));
+}
+
 export async function calculateBalances(store, householdId) {
   const data = await store.read();
   const household = assertHousehold(data, householdId);
@@ -130,6 +144,7 @@ export async function calculateBalances(store, householdId) {
 }
 
 export async function getReminderDigest(store, householdId, options = {}) {
+  options = requireObject(options, "options");
   const data = await store.read();
   const household = assertHousehold(data, householdId);
   const asOf = optionalDate(options.asOf, "asOf") || today();
@@ -154,9 +169,18 @@ export async function getReminderDigest(store, householdId, options = {}) {
 }
 
 function resolveShares(data, householdId, amountCents, payload) {
-  if (Array.isArray(payload.splits) && payload.splits.length > 0) {
+  const hasExactSplits = payload.splits !== undefined;
+  const hasParticipants = payload.participantUserIds !== undefined;
+  if (hasExactSplits && hasParticipants) {
+    throw new RentSplitError("Use either splits or participantUserIds, not both.");
+  }
+  if (hasExactSplits) {
+    if (!Array.isArray(payload.splits) || payload.splits.length === 0) {
+      throw new RentSplitError("splits must contain at least one split.");
+    }
     const seen = new Set();
     const shares = payload.splits.map((split) => {
+      split = requireObject(split, "split");
       const member = assertMember(data, householdId, split.userId);
       if (seen.has(member.userId)) throw new RentSplitError(`Duplicate split for user ${member.userId}.`);
       seen.add(member.userId);
@@ -166,10 +190,16 @@ function resolveShares(data, householdId, amountCents, payload) {
     if (total !== amountCents) throw new RentSplitError("Exact split amounts must add up to the expense amount.");
     return shares;
   }
-  const participantIds = Array.isArray(payload.participantUserIds) && payload.participantUserIds.length > 0
+  if (hasParticipants && (!Array.isArray(payload.participantUserIds) || payload.participantUserIds.length === 0)) {
+    throw new RentSplitError("participantUserIds must contain at least one user.");
+  }
+  const participantIds = hasParticipants
     ? payload.participantUserIds
     : data.memberships.filter((member) => member.householdId === householdId).map((member) => member.userId);
   const uniqueParticipantIds = [...new Set(participantIds)];
+  if (uniqueParticipantIds.length !== participantIds.length) {
+    throw new RentSplitError("participantUserIds must not contain duplicates.");
+  }
   for (const userId of uniqueParticipantIds) assertMember(data, householdId, userId);
   return splitEvenly(amountCents, uniqueParticipantIds);
 }
@@ -346,6 +376,13 @@ function requireText(value, fieldName, minLength, maxLength) {
   return normalized;
 }
 
+function requireObject(value, fieldName = "request body") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RentSplitError(`${fieldName} must be a JSON object.`);
+  }
+  return value;
+}
+
 function optionalText(value, fieldName, maxLength) {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value !== "string") throw new RentSplitError(`${fieldName} must be text.`);
@@ -361,10 +398,11 @@ function normalizeEmail(value) {
 }
 
 function normalizeCurrency(value) {
-  if (typeof value !== "string" || !/^[A-Z]{3}$/.test(value.trim())) {
+  const currency = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (!/^[A-Z]{3}$/.test(currency)) {
     throw new RentSplitError("currency must be a 3-letter ISO code like NGN or USD.");
   }
-  return value.trim().toUpperCase();
+  return currency;
 }
 
 function optionalDate(value, fieldName) {
@@ -373,7 +411,9 @@ function optionalDate(value, fieldName) {
     throw new RentSplitError(`${fieldName} must use YYYY-MM-DD format.`);
   }
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) throw new RentSplitError(`${fieldName} must be a real calendar date.`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new RentSplitError(`${fieldName} must be a real calendar date.`);
+  }
   return value;
 }
 

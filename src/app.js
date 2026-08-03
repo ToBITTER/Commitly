@@ -1,5 +1,6 @@
 ﻿import { URL } from "node:url";
 import { RentSplitError } from "./errors.js";
+import { serveStatic } from "./static.js";
 import { MemoryStore } from "./store.js";
 import {
   addMember,
@@ -11,6 +12,7 @@ import {
   getReminderDigest,
   listExpenses,
   listHouseholds,
+  listPayments,
   listUsers,
   recordPayment,
 } from "./services/rentsplit.js";
@@ -28,6 +30,10 @@ export function createApp({ store = new MemoryStore() } = {}) {
     try {
       const url = new URL(request.url, "http://localhost");
       const route = routeRequest(request.method, url.pathname);
+      if (!route && (request.method === "GET" || request.method === "HEAD")) {
+        const served = await serveStatic(url.pathname, request.method, response);
+        if (served) return;
+      }
       if (!route) throw new RentSplitError("Route not found.", { status: 404, code: "route_not_found" });
       const body = route.needsBody ? await readJsonBody(request) : {};
       const result = await route.handler({ store, body, params: route.params || {}, query: url.searchParams });
@@ -40,7 +46,7 @@ export function createApp({ store = new MemoryStore() } = {}) {
 
 function routeRequest(method, pathname) {
   const parts = pathname.split("/").filter(Boolean);
-  if (method === "GET" && pathname === "/") return { handler: root };
+  if (method === "GET" && pathname === "/api") return { handler: apiRoot };
   if (method === "GET" && pathname === "/health") return { handler: health };
   if (method === "GET" && pathname === "/users") return { handler: ({ store }) => listUsers(store) };
   if (method === "POST" && pathname === "/users") {
@@ -82,6 +88,9 @@ function routeRequest(method, pathname) {
         handler: ({ store, params, body }) => recordPayment(store, params.householdId, body),
       };
     }
+    if (method === "GET" && parts[2] === "payments" && parts.length === 3) {
+      return { params: { householdId }, handler: ({ store, params }) => listPayments(store, params.householdId) };
+    }
     if (method === "GET" && parts[2] === "balances" && parts.length === 3) {
       return { params: { householdId }, handler: ({ store, params }) => calculateBalances(store, params.householdId) };
     }
@@ -95,16 +104,22 @@ function routeRequest(method, pathname) {
   return null;
 }
 
-function root() {
+function apiRoot() {
   return {
     service: "rentsplit-api",
     status: "ok",
     endpoints: [
       "GET /health",
+      "GET /users",
       "POST /users",
+      "GET /households",
       "POST /households",
+      "GET /households/:id",
       "POST /households/:id/members",
+      "GET /households/:id/expenses",
       "POST /households/:id/expenses",
+      "GET /households/:id/payments",
+      "POST /households/:id/payments",
       "GET /households/:id/balances",
       "GET /households/:id/reminders",
     ],
@@ -128,8 +143,13 @@ async function readJsonBody(request) {
   const raw = Buffer.concat(chunks).toString("utf8").trim();
   if (!raw) return {};
   try {
-    return JSON.parse(raw);
+    const body = JSON.parse(raw);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new RentSplitError("Request body must be a JSON object.", { code: "invalid_body" });
+    }
+    return body;
   } catch (error) {
+    if (error instanceof RentSplitError) throw error;
     throw new RentSplitError("Request body must be valid JSON.", { status: 400, code: "invalid_json", cause: error });
   }
 }
@@ -141,8 +161,14 @@ function addCorsHeaders(response) {
 }
 
 function sendJson(response, status, payload) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-  response.end(`${JSON.stringify(payload, null, 2)}\n`);
+  const body = `${JSON.stringify(payload)}\n`;
+  response.writeHead(status, {
+    "Cache-Control": "no-store",
+    "Content-Length": Buffer.byteLength(body),
+    "Content-Type": "application/json; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+  });
+  response.end(body);
 }
 
 function handleError(response, error) {

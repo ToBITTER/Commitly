@@ -1,0 +1,16 @@
+{
+  "name": "RentSplit",
+  "short_name": "RentSplit",
+  "description": "Shared home finances without the awkward maths.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ed",
+  "theme_color": "#17251f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
