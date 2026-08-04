@@ -30,7 +30,27 @@
       <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     </svg>
 
-    <div class="app-shell">
+    <section class="auth-screen is-hidden" id="auth-screen" aria-labelledby="auth-title">
+      <div class="auth-card">
+        <div class="brand auth-brand"><span class="brand-mark" aria-hidden="true">R</span><span>RentSplit</span></div>
+        <div class="auth-copy">
+          <p class="eyebrow">Shared bills without the stress</p>
+          <h1 id="auth-title">Create your account</h1>
+          <p id="auth-copy">Start a private household, invite your roommates, and keep every payment clear.</p>
+        </div>
+        <form id="auth-form">
+          <label class="field" id="auth-name-field">Full name<input name="name" type="text" minlength="2" maxlength="80" autocomplete="name" placeholder="e.g. Ada Okafor" required></label>
+          <label class="field">Email address<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="ada@example.com" required></label>
+          <label class="field">Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required></label>
+          <button class="button button-primary auth-submit" type="submit">Create account</button>
+        </form>
+        <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
+        <button class="auth-toggle" id="auth-toggle" type="button">Already have an account? <strong>Sign in</strong></button>
+        <p class="auth-note">Your household data is private and only visible to its members.</p>
+      </div>
+    </section>
+
+    <div class="app-shell is-hidden" id="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">R</span>
@@ -101,6 +121,11 @@
               <svg class="icon"><use href="#icon-plus"/></svg>
               <span>Add expense</span>
             </button>
+            <div class="account-chip is-hidden" id="account-chip">
+              <span class="account-avatar" id="account-avatar">RS</span>
+              <span class="account-copy"><strong id="account-name">Account</strong><small id="account-email"></small></span>
+              <button class="account-signout" id="sign-out" type="button">Sign out</button>
+            </div>
           </div>
         </header>
 
@@ -169,7 +194,10 @@
             <article class="card reminders-card">
               <div class="card-header">
                 <div><p class="eyebrow">Friendly nudges</p><h2>Payment reminders</h2></div>
-                <span class="date-chip"><svg class="icon"><use href="#icon-calendar"/></svg><span id="as-of-date"></span></span>
+                <div class="reminder-actions">
+                  <button class="text-button" id="send-reminders" type="button"><svg class="icon"><use href="#icon-bell"/></svg>Email reminders</button>
+                  <span class="date-chip"><svg class="icon"><use href="#icon-calendar"/></svg><span id="as-of-date"></span></span>
+                </div>
               </div>
               <div class="reminder-grid" id="reminder-list"></div>
             </article>
@@ -213,7 +241,7 @@
       </main>
     </div>
 
-    <nav class="mobile-nav" aria-label="Mobile navigation">
+    <nav class="mobile-nav is-hidden" id="mobile-nav" aria-label="Mobile navigation">
       <button class="is-active" type="button" data-view="overview"><svg class="icon"><use href="#icon-home"/></svg><span>Home</span></button>
       <button type="button" data-view="expenses"><svg class="icon"><use href="#icon-receipt"/></svg><span>Expenses</span></button>
       <button class="mobile-add" type="button" data-open-dialog="expense-dialog"><svg class="icon"><use href="#icon-plus"/></svg><span>Add</span></button>
@@ -271,12 +299,34 @@
             <label class="field">Category<select name="category"><option value="rent">Rent</option><option value="utilities">Utilities</option><option value="groceries">Groceries</option><option value="internet">Internet</option><option value="transport">Transport</option><option value="general">Other</option></select></label>
           </div>
           <div class="field-row">
-            <label class="field">Paid by<select id="expense-payer" name="paidByUserId" required></select></label>
+            <label class="field" id="expense-payer-field">Who covered it?<select id="expense-payer" name="paidByUserId"></select></label>
             <label class="field">Due date <span>(optional)</span><input name="dueDate" type="date"></label>
           </div>
+          <fieldset class="coverage-field">
+            <legend>What is the payment situation?</legend>
+            <div class="coverage-grid">
+              <label class="coverage-option" id="coverage-self-option"><input type="radio" name="coverageMode" value="self" checked><span><strong>I paid the whole bill</strong><small>Roommates will owe their shares to me.</small></span></label>
+              <label class="coverage-option"><input type="radio" name="coverageMode" value="other"><span><strong>Someone else paid it</strong><small>Choose the roommate who covered everything.</small></span></label>
+              <label class="coverage-option"><input type="radio" name="coverageMode" value="unpaid"><span><strong>Nobody has paid yet</strong><small>Track each share without changing balances yet.</small></span></label>
+            </div>
+          </fieldset>
           <fieldset class="participant-field"><legend>Split equally between</legend><div class="participant-grid" id="expense-participants"></div></fieldset>
         </div>
         <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Add expense</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="cover-dialog">
+      <form id="cover-form">
+        <div class="modal-header">
+          <div><p class="eyebrow">Bill update</p><h2>Mark this bill as paid</h2><p>Choose who covered the full amount. Balances will update immediately.</p></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <p class="form-note" id="cover-expense-name"></p>
+          <label class="field">Paid by<select id="cover-payer" name="paidByUserId" required></select></label>
+        </div>
+        <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Mark as paid</button></div>
       </form>
     </dialog>
 

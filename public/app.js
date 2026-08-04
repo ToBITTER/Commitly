@@ -1,4 +1,9 @@
 const state = {
+  session: {
+    authenticationRequired: false,
+    emailNotificationsEnabled: false,
+    user: null,
+  },
   users: [],
   households: [],
   activeHousehold: null,
@@ -17,11 +22,27 @@ const viewCopy = {
 };
 
 const elements = {
+  accountAvatar: document.querySelector("#account-avatar"),
+  accountChip: document.querySelector("#account-chip"),
+  accountEmail: document.querySelector("#account-email"),
+  accountName: document.querySelector("#account-name"),
+  appShell: document.querySelector("#app-shell"),
+  authCopy: document.querySelector("#auth-copy"),
+  authForm: document.querySelector("#auth-form"),
+  authMessage: document.querySelector("#auth-message"),
+  authNameField: document.querySelector("#auth-name-field"),
+  authScreen: document.querySelector("#auth-screen"),
+  authTitle: document.querySelector("#auth-title"),
+  authToggle: document.querySelector("#auth-toggle"),
+  coverExpenseName: document.querySelector("#cover-expense-name"),
+  coverForm: document.querySelector("#cover-form"),
+  coverPayer: document.querySelector("#cover-payer"),
   dashboard: document.querySelector("#dashboard"),
   expenseCurrency: document.querySelector("#expense-currency"),
   expenseForm: document.querySelector("#expense-form"),
   expenseParticipants: document.querySelector("#expense-participants"),
   expensePayer: document.querySelector("#expense-payer"),
+  expensePayerField: document.querySelector("#expense-payer-field"),
   expenseSearch: document.querySelector("#expense-search"),
   expenseTable: document.querySelector("#expense-table"),
   existingPersonField: document.querySelector("#existing-person-field"),
@@ -34,6 +55,7 @@ const elements = {
   householdSelect: document.querySelector("#household-select"),
   loadingState: document.querySelector("#loading-state"),
   mobileMenu: document.querySelector("#mobile-menu"),
+  mobileNav: document.querySelector("#mobile-nav"),
   newPersonFields: document.querySelector("#new-person-fields"),
   paymentCurrency: document.querySelector("#payment-currency"),
   paymentForm: document.querySelector("#payment-form"),
@@ -47,6 +69,8 @@ const elements = {
   setupCopy: document.querySelector("#setup-copy"),
   setupState: document.querySelector("#setup-state"),
   setupTitle: document.querySelector("#setup-title"),
+  sendReminders: document.querySelector("#send-reminders"),
+  signOut: document.querySelector("#sign-out"),
   sidebar: document.querySelector("#sidebar"),
   syncState: document.querySelector("#sync-state"),
   toast: document.querySelector("#toast"),
@@ -56,16 +80,23 @@ const elements = {
 };
 
 let toastTimer;
+let authMode = "sign-up";
 
 document.addEventListener("click", handleDocumentClick);
 elements.householdSelect.addEventListener("change", () => loadHousehold(elements.householdSelect.value));
 elements.mobileMenu.addEventListener("click", toggleSidebar);
 elements.expenseSearch.addEventListener("input", renderExpenseTable);
+elements.expenseForm.addEventListener("change", updateCoverageMode);
 elements.existingUser.addEventListener("change", updatePersonMode);
+elements.authForm.addEventListener("submit", handleAuthSubmit);
+elements.authToggle.addEventListener("click", () => setAuthMode(authMode === "sign-up" ? "sign-in" : "sign-up"));
+elements.coverForm.addEventListener("submit", (event) => submitForm(event, saveCoveredExpense));
 elements.personForm.addEventListener("submit", (event) => submitForm(event, savePerson));
 elements.householdForm.addEventListener("submit", (event) => submitForm(event, saveHousehold));
 elements.expenseForm.addEventListener("submit", (event) => submitForm(event, saveExpense));
 elements.paymentForm.addEventListener("submit", (event) => submitForm(event, savePayment));
+elements.sendReminders.addEventListener("click", sendReminderEmails);
+elements.signOut.addEventListener("click", signOut);
 
 for (const dialog of document.querySelectorAll("dialog")) {
   dialog.addEventListener("click", (event) => {
@@ -78,13 +109,44 @@ initialize();
 async function initialize() {
   setView("overview");
   try {
+    state.session = await api("/session");
+    if (state.session.authenticationRequired && !state.session.user) {
+      showAuthScreen();
+      return;
+    }
+    showApplication();
     await refreshBaseData();
-    setSync("online", "All changes saved locally");
+    setSync("online", "All changes saved securely");
   } catch (error) {
+    showApplication();
     showStartupError(error);
   } finally {
     elements.loadingState.classList.add("is-hidden");
   }
+}
+
+function showApplication() {
+  elements.authScreen.classList.add("is-hidden");
+  elements.appShell.classList.remove("is-hidden");
+  elements.mobileNav.classList.remove("is-hidden");
+  renderAccount();
+}
+
+function showAuthScreen(message = "") {
+  elements.appShell.classList.add("is-hidden");
+  elements.mobileNav.classList.add("is-hidden");
+  elements.authScreen.classList.remove("is-hidden");
+  elements.authMessage.textContent = message;
+  setAuthMode("sign-up");
+}
+
+function renderAccount() {
+  const user = state.session.user;
+  elements.accountChip.classList.toggle("is-hidden", !state.session.authenticationRequired || !user);
+  if (!user) return;
+  elements.accountAvatar.textContent = initials(user.name);
+  elements.accountName.textContent = user.name;
+  elements.accountEmail.textContent = user.email;
 }
 
 async function refreshBaseData(preferredHouseholdId = null) {
@@ -131,7 +193,7 @@ async function loadHousehold(householdId, { quiet = false } = {}) {
     state.payments = payments;
     storeHouseholdId(householdId);
     renderApp();
-    setSync("online", "All changes saved locally");
+    setSync("online", "All changes saved securely");
   } catch (error) {
     setSync("error", "Could not load household");
     showToast(error.message, true);
@@ -149,11 +211,16 @@ function clearHouseholdState() {
 function renderApp() {
   renderHouseholdSelect();
   const hasHousehold = Boolean(state.activeHousehold);
+  const currentMembership = state.activeHousehold?.members.find((member) => member.userId === state.session.user?.id);
+  const canInvite = !state.session.authenticationRequired || currentMembership?.role === "owner";
   elements.dashboard.classList.toggle("is-hidden", !hasHousehold);
   elements.setupState.classList.toggle("is-hidden", hasHousehold);
 
   for (const button of document.querySelectorAll('[data-open-dialog="expense-dialog"], [data-open-dialog="payment-dialog"]')) {
     button.disabled = !hasHousehold;
+  }
+  for (const button of document.querySelectorAll('[data-open-dialog="person-dialog"]')) {
+    button.disabled = state.session.authenticationRequired ? !hasHousehold || !canInvite : false;
   }
 
   if (!hasHousehold) {
@@ -172,7 +239,7 @@ function renderSetup() {
     ? "Create your first household, choose its currency, and start splitting shared costs."
     : "Create your profile first, then start a household and invite your roommates.";
   elements.setupActions.innerHTML = hasUsers
-    ? `<button class="button button-primary" type="button" data-open-dialog="household-dialog"><svg class="icon"><use href="#icon-building"/></svg>Create household</button><button class="button button-secondary" type="button" data-open-dialog="person-dialog"><svg class="icon"><use href="#icon-plus"/></svg>Add another person</button>`
+    ? `<button class="button button-primary" type="button" data-open-dialog="household-dialog"><svg class="icon"><use href="#icon-building"/></svg>Create household</button>${state.session.authenticationRequired ? "" : '<button class="button button-secondary" type="button" data-open-dialog="person-dialog"><svg class="icon"><use href="#icon-plus"/></svg>Add another person</button>'}`
     : `<button class="button button-primary" type="button" data-open-dialog="person-dialog"><svg class="icon"><use href="#icon-users"/></svg>Create your profile</button>`;
 }
 
@@ -182,17 +249,23 @@ function renderDashboard() {
   const settlements = state.balances?.settlements || [];
   const outstanding = settlements.reduce((sum, item) => sum + Number(item.amount), 0);
   const totalSpend = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const unpaidCount = state.expenses.filter((expense) => expense.paymentStatus === "unpaid").length;
   const memberCount = household.members.length;
 
   elements.viewEyebrow.textContent = household.name;
   elements.heroAmount.textContent = formatMoney(outstanding, currency);
   elements.heroMessage.textContent = outstanding > 0
     ? `${plural(settlements.length, "payment")} will settle everyone up.`
-    : "Everyone is settled up. Nice work.";
+    : unpaidCount
+      ? `${plural(unpaidCount, "bill")} still waiting to be paid.`
+      : "Everyone is settled up. Nice work.";
   elements.expenseCurrency.textContent = currency;
   elements.paymentCurrency.textContent = currency;
   document.querySelector("#settlement-count").textContent = plural(settlements.length, "payment");
   document.querySelector("#as-of-date").textContent = formatDate(localDateString());
+  const currentMembership = household.members.find((member) => member.userId === state.session.user?.id);
+  elements.sendReminders.disabled = !state.session.emailNotificationsEnabled || !state.reminders?.count || (state.session.authenticationRequired && currentMembership?.role !== "owner");
+  elements.sendReminders.title = state.session.emailNotificationsEnabled ? "Send every current reminder by email" : "Add Resend settings to enable email notifications";
 
   document.querySelector("#stat-grid").innerHTML = [
     statCard("receipt", "Shared spend", formatMoney(totalSpend, currency), plural(state.expenses.length, "expense"), ""),
@@ -251,7 +324,7 @@ function renderExpenseTable() {
   const query = elements.expenseSearch.value.trim().toLowerCase();
   const expenses = state.expenses.filter((expense) => {
     if (!query) return true;
-    return [expense.description, expense.category, expense.paidByUserName].some((value) => value.toLowerCase().includes(query));
+    return [expense.description, expense.category, expense.paidByUserName || "", expense.paymentStatus].some((value) => value.toLowerCase().includes(query));
   });
 
   if (!expenses.length) {
@@ -265,9 +338,9 @@ function renderExpenseTable() {
       <div class="expense-table-row">
         <div class="table-expense">
           <span class="expense-icon category-${safeCategory(expense.category)}">${categoryGlyph(expense.category)}</span>
-          <div><strong>${escapeHtml(expense.description)}</strong><span>${formatDate(expense.createdAt)}</span></div>
+          <div><strong>${escapeHtml(expense.description)}</strong><span>${formatDate(expense.createdAt)}</span>${expense.paymentStatus === "unpaid" ? `<span class="mobile-expense-status payment-state-badge is-unpaid">Not paid <button class="table-action" type="button" data-cover-expense="${escapeHtml(expense.id)}">Mark paid</button></span>` : ""}</div>
         </div>
-        <span>${escapeHtml(expense.paidByUserName)}</span>
+        <span class="payment-state">${expense.paymentStatus === "unpaid" ? `<span class="payment-state-badge is-unpaid">Not paid yet</span><button class="table-action" type="button" data-cover-expense="${escapeHtml(expense.id)}">Mark as paid</button>` : `<span class="payment-state-badge">${escapeHtml(expense.paidByUserName)}</span>`}</span>
         <span class="table-muted">${plural(expense.shares.length, "person", "people")}</span>
         <strong class="table-amount">${formatMoney(expense.amount, state.activeHousehold.currency)}</strong>
       </div>
@@ -321,10 +394,11 @@ function renderPaymentHistory() {
 }
 
 function expenseRow(expense) {
+  const paymentCopy = expense.paymentStatus === "unpaid" ? "Nobody has paid yet" : `Paid by ${escapeHtml(expense.paidByUserName)}`;
   return `
     <div class="expense-row">
       <span class="expense-icon category-${safeCategory(expense.category)}">${categoryGlyph(expense.category)}</span>
-      <div class="expense-main"><strong>${escapeHtml(expense.description)}</strong><span>Paid by ${escapeHtml(expense.paidByUserName)} · ${formatDate(expense.createdAt)}</span></div>
+      <div class="expense-main"><strong>${escapeHtml(expense.description)}</strong><span>${paymentCopy} · ${formatDate(expense.createdAt)}</span></div>
       <div class="expense-amount"><strong>${formatMoney(expense.amount, state.activeHousehold.currency)}</strong><span>${escapeHtml(expense.category)}</span></div>
     </div>
   `;
@@ -389,6 +463,13 @@ function handleDocumentClick(event) {
     return;
   }
 
+  const coverButton = event.target.closest("[data-cover-expense]");
+  if (coverButton) {
+    const expense = state.expenses.find((item) => item.id === coverButton.dataset.coverExpense);
+    if (expense) prepareCoverDialog(expense);
+    return;
+  }
+
   const openButton = event.target.closest("[data-open-dialog]");
   if (openButton && !openButton.disabled) {
     openDialog(openButton.dataset.openDialog);
@@ -400,6 +481,10 @@ function handleDocumentClick(event) {
 }
 
 function openDialog(dialogId, settlement = null) {
+  if (dialogId === "person-dialog" && state.session.authenticationRequired && !state.activeHousehold) {
+    showToast("Create a household before inviting a roommate.", true);
+    dialogId = "household-dialog";
+  }
   if (dialogId === "household-dialog" && !state.users.length) {
     showToast("Create a profile before starting a household.", true);
     dialogId = "person-dialog";
@@ -426,7 +511,7 @@ function preparePersonDialog() {
   const availableUsers = state.users.filter((user) => !members.has(user.id));
   const hasHousehold = Boolean(state.activeHousehold);
   elements.personDialogTitle.textContent = hasHousehold ? "Add a roommate" : "Create your profile";
-  elements.personDialogCopy.textContent = hasHousehold ? "Create someone new or add an existing person." : "Add your details to get your household started.";
+  elements.personDialogCopy.textContent = hasHousehold ? "Add their email and we will send an invitation." : "Add your details to get your household started.";
   elements.personRoleField.classList.toggle("is-hidden", !hasHousehold);
   elements.existingPersonField.classList.toggle("is-hidden", !hasHousehold || !availableUsers.length);
   elements.existingUser.innerHTML = `<option value="new">Create someone new</option>${availableUsers.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} — ${escapeHtml(user.email)}</option>`).join("")}`;
@@ -457,6 +542,34 @@ function prepareExpenseDialog() {
     <label class="participant-option"><input type="checkbox" name="participantUserIds" value="${escapeHtml(member.userId)}" checked><span>${escapeHtml(member.userName)}</span></label>
   `).join("");
   elements.expenseCurrency.textContent = state.activeHousehold.currency;
+  const currentMember = members.find((member) => member.userId === state.session.user?.id);
+  const selfOption = document.querySelector("#coverage-self-option");
+  selfOption.classList.toggle("is-hidden", !currentMember);
+  if (currentMember) {
+    elements.expenseForm.elements.coverageMode.value = "self";
+    elements.expensePayer.value = currentMember.userId;
+  } else {
+    elements.expenseForm.elements.coverageMode.value = "other";
+  }
+  updateCoverageMode();
+}
+
+function updateCoverageMode() {
+  const mode = elements.expenseForm.elements.coverageMode.value;
+  const needsPayer = mode === "other";
+  elements.expensePayerField.classList.toggle("is-hidden", !needsPayer);
+  elements.expensePayer.required = needsPayer;
+}
+
+function prepareCoverDialog(expense) {
+  elements.coverForm.reset();
+  elements.coverForm.dataset.expenseId = expense.id;
+  elements.coverExpenseName.textContent = `${expense.description} · ${formatMoney(expense.amount, state.activeHousehold.currency)}`;
+  elements.coverPayer.innerHTML = state.activeHousehold.members.map((member) => `<option value="${escapeHtml(member.userId)}">${escapeHtml(member.userName)}</option>`).join("");
+  if (state.session.user && state.activeHousehold.members.some((member) => member.userId === state.session.user.id)) {
+    elements.coverPayer.value = state.session.user.id;
+  }
+  document.querySelector("#cover-dialog").showModal();
 }
 
 function preparePaymentDialog(settlement) {
@@ -484,6 +597,22 @@ async function savePerson() {
   const existingUserId = elements.existingPersonField.classList.contains("is-hidden") ? "new" : formData.get("existingUserId");
   let userId = existingUserId;
   const hadHousehold = Boolean(state.activeHousehold);
+
+  if (hadHousehold && state.session.authenticationRequired && existingUserId === "new") {
+    await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/invitations`, {
+      method: "POST",
+      body: {
+        name: formData.get("name"),
+        email: formData.get("email"),
+        phone: formData.get("phone") || undefined,
+        role: formData.get("role") || "member",
+      },
+    });
+    document.querySelector("#person-dialog").close();
+    await refreshBaseData(state.activeHousehold.id);
+    showToast("Roommate added and invitation email queued.");
+    return;
+  }
 
   if (existingUserId === "new") {
     const user = await api("/users", {
@@ -529,18 +658,35 @@ async function saveExpense() {
   const formData = new FormData(elements.expenseForm);
   const participantUserIds = formData.getAll("participantUserIds");
   if (!participantUserIds.length) throw new Error("Choose at least one person to split this expense with.");
+  const coverageMode = formData.get("coverageMode");
   const body = {
     description: formData.get("description"),
     amount: formData.get("amount"),
     category: formData.get("category"),
-    paidByUserId: formData.get("paidByUserId"),
+    paymentStatus: coverageMode === "unpaid" ? "unpaid" : "paid",
     participantUserIds,
   };
+  if (body.paymentStatus === "paid") {
+    body.paidByUserId = coverageMode === "self" ? state.session.user?.id : formData.get("paidByUserId");
+    if (!body.paidByUserId) throw new Error("Choose who covered the bill.");
+  }
   if (formData.get("dueDate")) body.dueDate = formData.get("dueDate");
   await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/expenses`, { method: "POST", body });
   document.querySelector("#expense-dialog").close();
   await loadHousehold(state.activeHousehold.id, { quiet: true });
-  showToast("Expense added and balances updated.");
+  showToast(body.paymentStatus === "paid" ? "Expense added and balances updated." : "Unpaid bill added. Balances will update when someone covers it.");
+}
+
+async function saveCoveredExpense() {
+  const expenseId = elements.coverForm.dataset.expenseId;
+  const formData = new FormData(elements.coverForm);
+  await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/expenses/${encodeURIComponent(expenseId)}/cover`, {
+    method: "POST",
+    body: { paidByUserId: formData.get("paidByUserId") },
+  });
+  document.querySelector("#cover-dialog").close();
+  await loadHousehold(state.activeHousehold.id, { quiet: true });
+  showToast("Bill marked as paid and balances updated.");
 }
 
 async function savePayment() {
@@ -560,6 +706,88 @@ async function savePayment() {
   document.querySelector("#payment-dialog").close();
   await loadHousehold(state.activeHousehold.id, { quiet: true });
   showToast("Payment recorded. Balances are up to date.");
+}
+
+async function sendReminderEmails() {
+  const originalLabel = elements.sendReminders.textContent;
+  elements.sendReminders.disabled = true;
+  elements.sendReminders.textContent = "Sending…";
+  try {
+    const result = await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/reminders/send`, {
+      method: "POST",
+      body: { asOf: localDateString() },
+    });
+    const { sent, failed, skipped } = result.delivery;
+    showToast(sent ? `${plural(sent, "reminder email")} sent.` : failed ? "Reminder emails could not be delivered." : `${plural(skipped, "reminder")} skipped because email is not configured.`, Boolean(failed));
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    elements.sendReminders.textContent = originalLabel;
+    renderDashboard();
+  }
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  if (!elements.authForm.reportValidity()) return;
+  const formData = new FormData(elements.authForm);
+  const submitButton = elements.authForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = authMode === "sign-up" ? "Creating account…" : "Signing in…";
+  elements.authMessage.textContent = "";
+  try {
+    const body = { email: formData.get("email"), password: formData.get("password") };
+    if (authMode === "sign-up") body.name = formData.get("name");
+    await api(authMode === "sign-up" ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email", { method: "POST", body });
+    state.session = await api("/session");
+    if (!state.session.user) {
+      setAuthMode("sign-in");
+      elements.authMessage.textContent = "Check your inbox, verify your email, then sign in.";
+      return;
+    }
+    showApplication();
+    elements.loadingState.classList.remove("is-hidden");
+    await refreshBaseData();
+    elements.loadingState.classList.add("is-hidden");
+    setSync("online", "All changes saved securely");
+  } catch (error) {
+    elements.authMessage.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = authMode === "sign-up" ? "Create account" : "Sign in";
+  }
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const signingUp = mode === "sign-up";
+  elements.authTitle.textContent = signingUp ? "Create your account" : "Welcome back";
+  elements.authCopy.textContent = signingUp
+    ? "Start a private household, invite your roommates, and keep every payment clear."
+    : "Sign in to see your households, bills, and payment updates.";
+  elements.authNameField.classList.toggle("is-hidden", !signingUp);
+  elements.authForm.elements.name.required = signingUp;
+  elements.authForm.elements.password.autocomplete = signingUp ? "new-password" : "current-password";
+  elements.authForm.querySelector('[type="submit"]').textContent = signingUp ? "Create account" : "Sign in";
+  elements.authToggle.innerHTML = signingUp ? 'Already have an account? <strong>Sign in</strong>' : 'New to RentSplit? <strong>Create an account</strong>';
+}
+
+async function signOut() {
+  elements.signOut.disabled = true;
+  try {
+    await api("/api/auth/sign-out", { method: "POST", body: {} });
+  } catch (error) {
+    showToast(error.message, true);
+    elements.signOut.disabled = false;
+    return;
+  }
+  state.session.user = null;
+  clearHouseholdState();
+  try {
+    localStorage.removeItem("rentsplit.householdId");
+  } catch {}
+  elements.signOut.disabled = false;
+  showAuthScreen("You have signed out.");
 }
 
 async function submitForm(event, action) {
@@ -594,7 +822,14 @@ async function api(path, options = {}) {
     throw new Error("Could not reach RentSplit. Check that the server is running.");
   }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error?.message || `Request failed with status ${response.status}.`);
+  if (!response.ok) {
+    if (response.status === 401 && state.session.authenticationRequired && !path.startsWith("/api/auth/")) {
+      state.session.user = null;
+      showAuthScreen("Your session expired. Sign in again.");
+    }
+    const errorMessage = payload.message || payload.error?.message || (typeof payload.error === "string" ? payload.error : null);
+    throw new Error(errorMessage || `Request failed with status ${response.status}.`);
+  }
   return payload;
 }
 

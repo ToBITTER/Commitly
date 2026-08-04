@@ -4,7 +4,7 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
   const enabled = Boolean(apiKey && from);
   const homeUrl = String(appUrl || "http://localhost:3000").replace(/\/$/, "");
 
-  async function send({ to, subject, text }) {
+  async function send({ to, subject, text, actionUrl = homeUrl, actionLabel = "Open RentSplit" }) {
     if (!enabled) return { skipped: true };
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
@@ -17,7 +17,7 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
         to: [to],
         subject,
         text,
-        html: emailDocument(subject, text, homeUrl),
+        html: emailDocument(subject, text, actionUrl, actionLabel),
       }),
     });
     if (!response.ok) {
@@ -44,6 +44,8 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
         to: user.email,
         subject: "Verify your RentSplit account",
         text: `Hi ${user.name},\n\nVerify your email to finish creating your RentSplit account:\n${url}\n\nIf you did not sign up, you can ignore this email.`,
+        actionUrl: url,
+        actionLabel: "Verify my email",
       });
     },
     async memberAdded({ store, householdId, userId, invitedByUserId }) {
@@ -134,9 +136,9 @@ export async function notifySafely(label, task) {
   }
 }
 
-function emailDocument(subject, text, homeUrl) {
+function emailDocument(subject, text, actionUrl, actionLabel) {
   const paragraphs = text.split("\n\n").map((paragraph) => `<p style="margin:0 0 16px;line-height:1.6">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("");
-  return `<!doctype html><html><body style="margin:0;background:#f4f6f5;color:#17251f;font-family:Arial,sans-serif"><div style="max-width:560px;margin:32px auto;padding:28px;background:#fff;border-radius:18px"><div style="font-size:20px;font-weight:700;margin-bottom:24px">RentSplit</div><h1 style="font-size:24px;margin:0 0 18px">${escapeHtml(subject)}</h1>${paragraphs}<a href="${escapeHtml(homeUrl)}" style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:10px;background:#de5f45;color:#fff;text-decoration:none;font-weight:700">Open RentSplit</a></div></body></html>`;
+  return `<!doctype html><html><body style="margin:0;background:#f4f6f5;color:#17251f;font-family:Arial,sans-serif"><div style="max-width:560px;margin:32px auto;padding:28px;background:#fff;border-radius:18px"><div style="font-size:20px;font-weight:700;margin-bottom:24px">RentSplit</div><h1 style="font-size:24px;margin:0 0 18px">${escapeHtml(subject)}</h1>${paragraphs}<a href="${escapeHtml(actionUrl)}" style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:10px;background:#de5f45;color:#fff;text-decoration:none;font-weight:700">${escapeHtml(actionLabel)}</a></div></body></html>`;
 }
 
 function dedupeMessages(messages) {

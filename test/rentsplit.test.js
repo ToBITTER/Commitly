@@ -7,6 +7,7 @@ import {
   createHousehold,
   createUser,
   getReminderDigest,
+  markExpensePaid,
   recordPayment,
 } from "../src/services/rentsplit.js";
 import { MemoryStore } from "../src/store.js";
@@ -97,6 +98,35 @@ test("supports exact custom split amounts", async () => {
       ["Chi", "4000.00"],
     ],
   );
+});
+
+test("tracks an unpaid bill without changing balances until someone covers it", async () => {
+  const { store, ada, ben, household } = await seedThreeRoommates();
+  const expense = await createExpense(store, household.id, {
+    description: "Internet renewal",
+    amount: "12000.00",
+    paymentStatus: "unpaid",
+    participantUserIds: [ada.id, ben.id],
+    dueDate: "2026-08-01",
+  });
+
+  assert.equal(expense.paymentStatus, "unpaid");
+  assert.equal(expense.paidByUserId, null);
+  const unpaidBalances = await calculateBalances(store, household.id);
+  assert.equal(unpaidBalances.settlements.length, 0);
+  assert.ok(unpaidBalances.members.every((member) => member.status === "settled"));
+
+  const digest = await getReminderDigest(store, household.id, { asOf: "2026-08-04" });
+  assert.equal(digest.count, 2);
+  assert.ok(digest.reminders.every((reminder) => reminder.type === "unpaid_bill"));
+
+  const covered = await markExpensePaid(store, household.id, expense.id, { paidByUserId: ada.id });
+  assert.equal(covered.paymentStatus, "paid");
+  assert.equal(covered.paidByUserId, ada.id);
+  const paidBalances = await calculateBalances(store, household.id);
+  assert.deepEqual(paidBalances.settlements.map((settlement) => [settlement.fromUserId, settlement.toUserId, settlement.amount]), [
+    [ben.id, ada.id, "6000.00"],
+  ]);
 });
 
 test("builds reminder digest from outstanding settlements", async () => {

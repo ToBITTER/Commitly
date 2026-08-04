@@ -3,13 +3,10 @@
   "version": "1.0.0",
   "description": "Responsive roommate expense-splitting web app with balances, settlements, reminders, and a local API.",
   "type": "module",
-  "bin": {
-    "rentsplit": "bin/rentsplit.js"
-  },
   "main": "./src/server.js",
   "scripts": {
-    "start": "node ./src/server.js",
-    "dev": "node --watch ./src/server.js",
+    "start": "node --env-file-if-exists=.env ./src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch ./src/server.js",
     "test": "node --test",
     "smoke:api": "node ./scripts/smoke-api.js",
     "check:deployment": "node ./scripts/check-deployment.js",
@@ -27,7 +24,6 @@
     "node": ">=22.12.0"
   },
   "files": [
-    "bin",
     "public",
     "src",
     "scripts",

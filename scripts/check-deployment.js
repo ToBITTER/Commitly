@@ -9,7 +9,7 @@ const checks = [
   { path: "/health", type: "application/json", includes: '"status":"ok"' },
   { path: "/", type: "text/html", includes: "RentSplit" },
   { path: "/app.js", type: "text/javascript", includes: "renderDashboard" },
-  { path: "/users", type: "application/json", includes: "[" },
+  { path: "/session", type: "application/json", includes: '"authenticationRequired":true' },
 ];
 
 for (const check of checks) {

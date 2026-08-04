@@ -103,15 +103,54 @@ test("HTTP server delivers the browser application", async () => {
   }
 });
 
-async function get(baseUrl, path) {
-  const response = await fetch(`${baseUrl}${path}`);
+test("authenticated accounts only see households they belong to", async () => {
+  const store = new MemoryStore();
+  const auth = {
+    async handler(_request, response) {
+      response.writeHead(404);
+      response.end();
+    },
+    async getSession(request) {
+      const email = request.headers["x-test-email"];
+      if (!email) return null;
+      return { user: { id: `auth-${email}`, name: request.headers["x-test-name"] || "Test User", email } };
+    },
+  };
+  const server = createServer(createApp({ store, auth }));
+  server.listen(0);
+  await once(server, "listening");
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const adaHeaders = { "x-test-email": "ada.secure@example.com", "x-test-name": "Ada" };
+  const benHeaders = { "x-test-email": "ben.secure@example.com", "x-test-name": "Ben" };
+  try {
+    const anonymousResponse = await fetch(`${baseUrl}/households`);
+    assert.equal(anonymousResponse.status, 401);
+
+    const household = await post(baseUrl, "/households", { name: "Secure Flat", currency: "NGN" }, adaHeaders);
+    const benHouseholdsBeforeInvite = await get(baseUrl, "/households", benHeaders);
+    assert.deepEqual(benHouseholdsBeforeInvite, []);
+
+    const forbiddenResponse = await fetch(`${baseUrl}/households/${household.id}`, { headers: benHeaders });
+    assert.equal(forbiddenResponse.status, 403);
+
+    await post(baseUrl, `/households/${household.id}/invitations`, { name: "Ben", email: "ben.secure@example.com" }, adaHeaders);
+    const benHouseholdsAfterInvite = await get(baseUrl, "/households", benHeaders);
+    assert.equal(benHouseholdsAfterInvite.length, 1);
+    assert.equal(benHouseholdsAfterInvite[0].name, "Secure Flat");
+  } finally {
+    server.close();
+  }
+});
+
+async function get(baseUrl, path, headers = {}) {
+  const response = await fetch(`${baseUrl}${path}`, { headers });
   return parse(response);
 }
 
-async function post(baseUrl, path, body) {
+async function post(baseUrl, path, body, headers = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
   return parse(response);

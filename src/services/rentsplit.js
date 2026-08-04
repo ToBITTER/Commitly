@@ -8,10 +8,15 @@ const PAYMENT_STATUS_VALUES = new Set(["paid", "unpaid"]);
 
 export async function findOrCreateAuthenticatedUser(store, identity) {
   identity = requireObject(identity, "authenticated user");
+  const authUserId = requireText(identity.id, "authenticated user id", 1, 160);
+  const name = requireText(identity.name, "name", 2, 80);
+  const email = normalizeEmail(identity.email);
+  const currentData = await store.read();
+  const currentUser = currentData.users.find((user) => user.authUserId === authUserId || user.email === email);
+  if (currentUser?.authUserId === authUserId && currentUser.name === name && currentUser.email === email) {
+    return serializeUser(currentUser);
+  }
   return store.mutate((data) => {
-    const authUserId = requireText(identity.id, "authenticated user id", 1, 160);
-    const name = requireText(identity.name, "name", 2, 80);
-    const email = normalizeEmail(identity.email);
     const matchedById = data.users.find((user) => user.authUserId === authUserId);
     const matchedByEmail = data.users.find((user) => user.email === email);
     if (matchedById && matchedByEmail && matchedById.id !== matchedByEmail.id) {
@@ -102,6 +107,35 @@ export async function addMember(store, householdId, payload, actorUserId = null)
     const user = assertUser(data, payload.userId);
     const role = payload.role || "member";
     if (!ROLE_VALUES.has(role)) throw new RentSplitError("role must be either owner or member.");
+    if (data.memberships.some((member) => member.householdId === household.id && member.userId === user.id)) {
+      throw conflict(`${user.name} is already a member of ${household.name}.`);
+    }
+    const membership = { id: nextId(data, "memberships"), householdId: household.id, userId: user.id, role, joinedAt: now() };
+    data.memberships.push(membership);
+    return serializeMembership(membership, data);
+  });
+}
+
+export async function inviteMember(store, householdId, payload, actorUserId = null) {
+  payload = requireObject(payload);
+  return store.mutate((data) => {
+    const household = assertHousehold(data, householdId);
+    assertActorMembership(data, household.id, actorUserId, { ownerOnly: true });
+    const name = requireText(payload.name, "name", 2, 80);
+    const email = normalizeEmail(payload.email);
+    const role = payload.role || "member";
+    if (!ROLE_VALUES.has(role)) throw new RentSplitError("role must be either owner or member.");
+    let user = data.users.find((candidate) => candidate.email === email);
+    if (!user) {
+      user = {
+        id: nextId(data, "users"),
+        name,
+        email,
+        phone: optionalText(payload.phone, "phone", 30),
+        createdAt: now(),
+      };
+      data.users.push(user);
+    }
     if (data.memberships.some((member) => member.householdId === household.id && member.userId === user.id)) {
       throw conflict(`${user.name} is already a member of ${household.name}.`);
     }
