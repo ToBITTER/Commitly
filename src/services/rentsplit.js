@@ -4,6 +4,34 @@ import { nextId } from "../store.js";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ROLE_VALUES = new Set(["owner", "member"]);
+const PAYMENT_STATUS_VALUES = new Set(["paid", "unpaid"]);
+
+export async function findOrCreateAuthenticatedUser(store, identity) {
+  identity = requireObject(identity, "authenticated user");
+  return store.mutate((data) => {
+    const authUserId = requireText(identity.id, "authenticated user id", 1, 160);
+    const name = requireText(identity.name, "name", 2, 80);
+    const email = normalizeEmail(identity.email);
+    const matchedById = data.users.find((user) => user.authUserId === authUserId);
+    const matchedByEmail = data.users.find((user) => user.email === email);
+    if (matchedById && matchedByEmail && matchedById.id !== matchedByEmail.id) {
+      throw conflict("This account email is already connected to another RentSplit profile.");
+    }
+    const user = matchedById || matchedByEmail;
+    if (user) {
+      if (user.authUserId && user.authUserId !== authUserId) {
+        throw conflict("This RentSplit profile is already connected to another account.");
+      }
+      user.authUserId = authUserId;
+      user.name = name;
+      user.email = email;
+      return serializeUser(user);
+    }
+    const created = { id: nextId(data, "users"), authUserId, name, email, phone: null, createdAt: now() };
+    data.users.push(created);
+    return serializeUser(created);
+  });
+}
 
 export async function createUser(store, payload) {
   payload = requireObject(payload);
@@ -18,24 +46,30 @@ export async function createUser(store, payload) {
   });
 }
 
-export async function listUsers(store) {
+export async function listUsers(store, actorUserId = null) {
   const data = await store.read();
-  return data.users.map(serializeUser);
+  if (!actorUserId) return data.users.map(serializeUser);
+  assertUser(data, actorUserId);
+  const householdIds = new Set(data.memberships.filter((member) => member.userId === actorUserId).map((member) => member.householdId));
+  const visibleUserIds = new Set(data.memberships.filter((member) => householdIds.has(member.householdId)).map((member) => member.userId));
+  visibleUserIds.add(actorUserId);
+  return data.users.filter((user) => visibleUserIds.has(user.id)).map(serializeUser);
 }
 
-export async function createHousehold(store, payload) {
+export async function createHousehold(store, payload, actorUserId = null) {
   payload = requireObject(payload);
   return store.mutate((data) => {
     const name = requireText(payload.name, "name", 2, 80);
     const currency = normalizeCurrency(payload.currency || "NGN");
     const household = { id: nextId(data, "households"), name, currency, createdAt: now() };
     data.households.push(household);
-    if (payload.createdByUserId) {
-      assertUser(data, payload.createdByUserId);
+    const ownerUserId = actorUserId || payload.createdByUserId;
+    if (ownerUserId) {
+      assertUser(data, ownerUserId);
       data.memberships.push({
         id: nextId(data, "memberships"),
         householdId: household.id,
-        userId: payload.createdByUserId,
+        userId: ownerUserId,
         role: "owner",
         joinedAt: now(),
       });
@@ -44,20 +78,27 @@ export async function createHousehold(store, payload) {
   });
 }
 
-export async function listHouseholds(store) {
+export async function listHouseholds(store, actorUserId = null) {
   const data = await store.read();
-  return data.households.map((household) => serializeHousehold(household, data));
+  const householdIds = actorUserId
+    ? new Set(data.memberships.filter((member) => member.userId === actorUserId).map((member) => member.householdId))
+    : null;
+  if (actorUserId) assertUser(data, actorUserId);
+  return data.households.filter((household) => !householdIds || householdIds.has(household.id)).map((household) => serializeHousehold(household, data));
 }
 
-export async function getHousehold(store, householdId) {
+export async function getHousehold(store, householdId, actorUserId = null) {
   const data = await store.read();
-  return serializeHousehold(assertHousehold(data, householdId), data);
+  const household = assertHousehold(data, householdId);
+  assertActorMembership(data, household.id, actorUserId);
+  return serializeHousehold(household, data);
 }
 
-export async function addMember(store, householdId, payload) {
+export async function addMember(store, householdId, payload, actorUserId = null) {
   payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
+    assertActorMembership(data, household.id, actorUserId, { ownerOnly: true });
     const user = assertUser(data, payload.userId);
     const role = payload.role || "member";
     if (!ROLE_VALUES.has(role)) throw new RentSplitError("role must be either owner or member.");
@@ -70,11 +111,14 @@ export async function addMember(store, householdId, payload) {
   });
 }
 
-export async function createExpense(store, householdId, payload) {
+export async function createExpense(store, householdId, payload, actorUserId = null) {
   payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
-    const paidBy = assertMember(data, household.id, payload.paidByUserId);
+    assertActorMembership(data, household.id, actorUserId);
+    const paymentStatus = payload.paymentStatus || "paid";
+    if (!PAYMENT_STATUS_VALUES.has(paymentStatus)) throw new RentSplitError("paymentStatus must be either paid or unpaid.");
+    const paidBy = paymentStatus === "paid" ? assertMember(data, household.id, payload.paidByUserId) : null;
     const amountCents = toCents(payload.amount, "amount");
     const description = requireText(payload.description, "description", 2, 120);
     const category = optionalText(payload.category, "category", 50) || "general";
@@ -86,7 +130,8 @@ export async function createExpense(store, householdId, payload) {
       description,
       category,
       amountCents,
-      paidByUserId: paidBy.userId,
+      paymentStatus,
+      paidByUserId: paidBy?.userId || null,
       dueDate,
       createdAt: now(),
     };
@@ -98,19 +143,37 @@ export async function createExpense(store, householdId, payload) {
   });
 }
 
-export async function listExpenses(store, householdId) {
+export async function listExpenses(store, householdId, actorUserId = null) {
   const data = await store.read();
   const household = assertHousehold(data, householdId);
+  assertActorMembership(data, household.id, actorUserId);
   return data.expenses
     .filter((expense) => expense.householdId === household.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((expense) => serializeExpense(expense, data));
 }
 
-export async function recordPayment(store, householdId, payload) {
+export async function markExpensePaid(store, householdId, expenseId, payload, actorUserId = null) {
   payload = requireObject(payload);
   return store.mutate((data) => {
     const household = assertHousehold(data, householdId);
+    assertActorMembership(data, household.id, actorUserId);
+    const expense = data.expenses.find((item) => item.id === expenseId && item.householdId === household.id);
+    if (!expense) throw notFound("Expense", expenseId);
+    if (expensePaymentStatus(expense) === "paid") throw conflict(`${expense.description} is already marked as paid.`);
+    const paidBy = assertMember(data, household.id, payload.paidByUserId);
+    expense.paymentStatus = "paid";
+    expense.paidByUserId = paidBy.userId;
+    expense.paidAt = now();
+    return serializeExpense(expense, data);
+  });
+}
+
+export async function recordPayment(store, householdId, payload, actorUserId = null) {
+  payload = requireObject(payload);
+  return store.mutate((data) => {
+    const household = assertHousehold(data, householdId);
+    assertActorMembership(data, household.id, actorUserId);
     const fromMember = assertMember(data, household.id, payload.fromUserId);
     const toMember = assertMember(data, household.id, payload.toUserId);
     if (fromMember.userId === toMember.userId) throw new RentSplitError("fromUserId and toUserId must be different users.");
@@ -128,34 +191,38 @@ export async function recordPayment(store, householdId, payload) {
   });
 }
 
-export async function listPayments(store, householdId) {
+export async function listPayments(store, householdId, actorUserId = null) {
   const data = await store.read();
   const household = assertHousehold(data, householdId);
+  assertActorMembership(data, household.id, actorUserId);
   return data.payments
     .filter((payment) => payment.householdId === household.id)
     .sort((a, b) => b.paidAt.localeCompare(a.paidAt))
     .map((payment) => serializePayment(payment, data));
 }
 
-export async function calculateBalances(store, householdId) {
+export async function calculateBalances(store, householdId, actorUserId = null) {
   const data = await store.read();
   const household = assertHousehold(data, householdId);
+  assertActorMembership(data, household.id, actorUserId);
   return buildBalanceResponse(data, household);
 }
 
-export async function getReminderDigest(store, householdId, options = {}) {
+export async function getReminderDigest(store, householdId, options = {}, actorUserId = null) {
   options = requireObject(options, "options");
   const data = await store.read();
   const household = assertHousehold(data, householdId);
+  assertActorMembership(data, household.id, actorUserId);
   const asOf = optionalDate(options.asOf, "asOf") || today();
   const balances = buildBalanceResponse(data, household);
   const dueExpenseIds = new Set(
     data.expenses
       .filter((expense) => expense.householdId === household.id)
-      .filter((expense) => expense.dueDate && expense.dueDate <= asOf)
+      .filter((expense) => expensePaymentStatus(expense) === "paid" && expense.dueDate && expense.dueDate <= asOf)
       .map((expense) => expense.id),
   );
-  const reminders = balances.settlements.map((settlement) => ({
+  const settlementReminders = balances.settlements.map((settlement) => ({
+    type: "settlement",
     householdId: household.id,
     userId: settlement.fromUserId,
     userName: settlement.fromUserName,
@@ -165,6 +232,24 @@ export async function getReminderDigest(store, householdId, options = {}) {
     message: `${settlement.fromUserName} owes ${settlement.toUserName} ${household.currency} ${settlement.amount}.`,
     dueExpenseIds: findDueExpenseIdsForUser(data, dueExpenseIds, settlement.fromUserId),
   }));
+  const unpaidReminders = data.expenses
+    .filter((expense) => expense.householdId === household.id)
+    .filter((expense) => expensePaymentStatus(expense) === "unpaid" && expense.dueDate && expense.dueDate <= asOf)
+    .flatMap((expense) => data.expenseShares.filter((share) => share.expenseId === expense.id).map((share) => {
+      const user = assertUser(data, share.userId);
+      return {
+        type: "unpaid_bill",
+        householdId: household.id,
+        userId: user.id,
+        userName: user.name,
+        channel: "email",
+        amount: centsToMoney(share.amountCents),
+        currency: household.currency,
+        message: `${user.name} still needs to pay ${household.currency} ${centsToMoney(share.amountCents)} for ${expense.description}.`,
+        dueExpenseIds: [expense.id],
+      };
+    }));
+  const reminders = [...settlementReminders, ...unpaidReminders];
   return { household: serializeHouseholdSummary(household), asOf, count: reminders.length, reminders };
 }
 
@@ -207,7 +292,7 @@ function resolveShares(data, householdId, amountCents, payload) {
 function buildBalanceResponse(data, household) {
   const members = data.memberships.filter((member) => member.householdId === household.id);
   const balances = new Map(members.map((member) => [member.userId, 0]));
-  const expenses = data.expenses.filter((expense) => expense.householdId === household.id);
+  const expenses = data.expenses.filter((expense) => expense.householdId === household.id && expensePaymentStatus(expense) === "paid");
   const expenseIds = new Set(expenses.map((expense) => expense.id));
   const shares = data.expenseShares.filter((share) => expenseIds.has(share.expenseId));
   const payments = data.payments.filter((payment) => payment.householdId === household.id);
@@ -276,7 +361,7 @@ function findDueExpenseIdsForUser(data, dueExpenseIds, userId) {
 }
 
 function serializeUser(user) {
-  return { ...user };
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone || null, createdAt: user.createdAt };
 }
 
 function serializeHousehold(household, data) {
@@ -306,7 +391,8 @@ function serializeMembership(membership, data) {
 }
 
 function serializeExpense(expense, data) {
-  const paidBy = assertUser(data, expense.paidByUserId);
+  const paymentStatus = expensePaymentStatus(expense);
+  const paidBy = paymentStatus === "paid" ? assertUser(data, expense.paidByUserId) : null;
   const shares = data.expenseShares
     .filter((share) => share.expenseId === expense.id)
     .map((share) => {
@@ -319,9 +405,11 @@ function serializeExpense(expense, data) {
     description: expense.description,
     category: expense.category,
     amount: centsToMoney(expense.amountCents),
-    paidByUserId: paidBy.id,
-    paidByUserName: paidBy.name,
+    paymentStatus,
+    paidByUserId: paidBy?.id || null,
+    paidByUserName: paidBy?.name || null,
     dueDate: expense.dueDate,
+    paidAt: expense.paidAt || null,
     shares,
     createdAt: expense.createdAt,
   };
@@ -365,6 +453,22 @@ function assertMember(data, householdId, userId) {
     });
   }
   return member;
+}
+
+function assertActorMembership(data, householdId, actorUserId, { ownerOnly = false } = {}) {
+  if (!actorUserId) return null;
+  const membership = assertMember(data, householdId, actorUserId);
+  if (ownerOnly && membership.role !== "owner") {
+    throw new RentSplitError("Only a household owner can add roommates.", {
+      status: 403,
+      code: "owner_required",
+    });
+  }
+  return membership;
+}
+
+function expensePaymentStatus(expense) {
+  return expense.paymentStatus === "unpaid" ? "unpaid" : "paid";
 }
 
 function requireText(value, fieldName, minLength, maxLength) {

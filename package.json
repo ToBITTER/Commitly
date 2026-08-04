@@ -37,6 +37,7 @@
     ".env.example"
   ],
   "dependencies": {
+    "better-auth": "^1.6.25",
     "pg": "^8.22.0"
   }
 }
