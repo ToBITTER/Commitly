@@ -2334,3 +2334,65 @@ select:focus-visible {
     margin: 12px;
   }
 }
+
+/* Keep the dark theme last so responsive light-theme rules cannot override it. */
+:root[data-theme="dark"] html,
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .main-content {
+  background: var(--canvas);
+}
+
+:root[data-theme="dark"] .auth-screen {
+  background: var(--sidebar);
+}
+
+:root[data-theme="dark"] .auth-card,
+:root[data-theme="dark"] .button-secondary,
+:root[data-theme="dark"] .button-quiet,
+:root[data-theme="dark"] .select-shell-dark select,
+:root[data-theme="dark"] .account-chip,
+:root[data-theme="dark"] .setup-steps span,
+:root[data-theme="dark"] .hero-card,
+:root[data-theme="dark"] .button-ghost-light,
+:root[data-theme="dark"] .stat-card,
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .person-card,
+:root[data-theme="dark"] .search-field input,
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .money-field,
+:root[data-theme="dark"] .modal,
+:root[data-theme="dark"] .modal-header,
+:root[data-theme="dark"] .modal-footer,
+:root[data-theme="dark"] .setup-art,
+:root[data-theme="dark"] .theme-toggle {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .sidebar {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .sidebar-link,
+:root[data-theme="dark"] .nav-item,
+:root[data-theme="dark"] .select-shell-dark::after,
+:root[data-theme="dark"] .select-shell-dark .icon {
+  color: var(--ink-soft);
+}
+
+:root[data-theme="dark"] .sidebar-link:hover,
+:root[data-theme="dark"] .nav-item:hover,
+:root[data-theme="dark"] .nav-item.is-active,
+:root[data-theme="dark"] .button-secondary:hover:not(:disabled),
+:root[data-theme="dark"] .button-quiet:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+:root[data-theme="dark"] .mobile-nav {
+  border-color: var(--line);
+  background: rgba(32, 34, 38, 0.96);
+}
