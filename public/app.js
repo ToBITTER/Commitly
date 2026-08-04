@@ -804,8 +804,6 @@ function setAuthMode(mode) {
   const signingUp = mode === "sign-up";
   elements.authForm.reset();
   elements.authForm.elements.confirmPassword.setCustomValidity("");
-  elements.authForm.elements.name.required = signingUp;
-  elements.authForm.elements.confirmPassword.required = signingUp;
   elements.authForm.elements.password.autocomplete = signingUp ? "new-password" : "current-password";
   elements.authToggle.innerHTML = signingUp ? 'Already have an account? <strong>Sign in</strong>' : 'New to RentSplit? <strong>Create an account</strong>';
   setAuthStep(0);
@@ -818,6 +816,7 @@ function setAuthStep(step) {
   elements.authSteps.forEach((field, index) => {
     const visible = signingUp ? index === authStep : index === 1 || index === 2;
     field.classList.toggle("is-hidden", !visible);
+    field.querySelector("input").required = visible;
   });
   elements.authBack.classList.toggle("is-hidden", !signingUp || authStep === 0);
   elements.authProgressDots.forEach((dot, index) => dot.classList.toggle("is-active", index <= authStep));
