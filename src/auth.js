@@ -9,7 +9,7 @@ const { Pool } = pg;
 
 const TRUSTED_CLIENT_IP_HEADER = "x-rentsplit-client-ip";
 
-export function createAuthService({ databaseUrl, secret, baseUrl, trustedOrigins = [baseUrl], trustProxyHeaders = false, emailNotifier }) {
+export function createAuthService({ databaseUrl, secret, baseUrl, trustedOrigins = [baseUrl], trustProxyHeaders = false }) {
   if (!databaseUrl) return null;
   const normalizedBaseUrl = normalizeOrigin(baseUrl);
   if (!normalizedBaseUrl) throw new Error("A valid public base URL is required for authentication.");
@@ -29,7 +29,6 @@ export function createAuthService({ databaseUrl, secret, baseUrl, trustedOrigins
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
   });
-  const emailEnabled = Boolean(emailNotifier?.enabled);
   const options = {
     database: pool,
     secret: resolvedSecret,
@@ -45,15 +44,8 @@ export function createAuthService({ databaseUrl, secret, baseUrl, trustedOrigins
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
-      requireEmailVerification: emailEnabled,
+      requireEmailVerification: false,
     },
-    ...(emailEnabled ? {
-      emailVerification: {
-        sendOnSignUp: true,
-        autoSignInAfterVerification: true,
-        sendVerificationEmail: ({ user, url }) => emailNotifier.sendVerificationEmail({ user, url }),
-      },
-    } : {}),
   };
   const auth = betterAuth(options);
   const nodeHandler = toNodeHandler(auth);

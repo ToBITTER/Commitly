@@ -44,15 +44,6 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
   return {
     enabled,
     configurationError,
-    sendVerificationEmail({ user, url }) {
-      return send({
-        to: user.email,
-        subject: "Verify your RentSplit account",
-        text: `Hi ${user.name},\n\nVerify your email to finish creating your RentSplit account:\n${url}\n\nIf you did not sign up, you can ignore this email.`,
-        actionUrl: url,
-        actionLabel: "Verify my email",
-      });
-    },
     async memberAdded({ store, householdId, userId, invitedByUserId }) {
       const data = await store.read();
       const household = data.households.find((item) => item.id === householdId);

@@ -70,12 +70,24 @@ body {
 .auth-copy h1 { margin: 0 0 10px; font-size: 31px; letter-spacing: -0.045em; }
 .auth-copy > p:last-child { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
 .auth-card form { display: grid; gap: 16px; }
-.auth-submit { width: 100%; margin-top: 3px; }
+.auth-progress { display: grid; gap: 8px; margin-bottom: 2px; color: var(--ink-faint); font-size: 9px; font-weight: 760; letter-spacing: 0.08em; text-transform: uppercase; }
+.auth-progress-dots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.auth-progress-dots i { height: 3px; border-radius: 999px; background: var(--line); transition: background 180ms ease; }
+.auth-progress-dots i.is-active { background: var(--accent); }
+.auth-step { animation: auth-step-in 180ms ease both; }
+.auth-actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 3px; }
+.auth-back { min-width: 92px; }
+.auth-submit { width: 100%; }
+.auth-back.is-hidden + .auth-submit { grid-column: 1 / -1; }
 .auth-message { min-height: 18px; margin: 13px 0 0; color: var(--accent-dark); font-size: 11px; line-height: 1.5; text-align: center; }
-.auth-resend { display: block; width: 100%; padding: 6px; border: 0; color: var(--green); background: transparent; font-size: 11px; font-weight: 760; }
 .auth-toggle { display: block; width: 100%; padding: 7px; border: 0; color: var(--ink-soft); background: transparent; font-size: 11px; }
 .auth-toggle strong { color: var(--accent-dark); }
 .auth-note { margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-faint); font-size: 10px; line-height: 1.5; text-align: center; }
+
+@keyframes auth-step-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 
 button,
 input,

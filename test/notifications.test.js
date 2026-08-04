@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createEmailNotifier } from "../src/notifications.js";
 
-test("sends verification email through Resend with a direct verification action", async () => {
+test("sends roommate invitation email through Resend", async () => {
   const originalFetch = globalThis.fetch;
   const apiKey = ["re", "12345678901234567890"].join("_");
   let request;
@@ -20,23 +20,25 @@ test("sends verification email through Resend with a direct verification action"
       from: "RentSplit <notifications@example.com>",
       appUrl: "https://rentsplit.example.com",
     });
-    await notifier.sendVerificationEmail({
-      user: { name: "Ada", email: "ada@example.com" },
-      url: "https://rentsplit.example.com/api/auth/verify-email?token=secure-token",
+    await notifier.memberAdded({
+      store: invitationStore(),
+      householdId: "home_1",
+      userId: "user_2",
+      invitedByUserId: "user_1",
     });
 
     assert.equal(request.url, "https://api.resend.com/emails");
     assert.equal(request.options.headers.Authorization, `Bearer ${apiKey}`);
     assert.equal(request.options.headers["User-Agent"], "rentsplit/1.0");
-    assert.deepEqual(request.body.to, ["ada@example.com"]);
-    assert.match(request.body.html, /Verify my email/);
-    assert.match(request.body.html, /verify-email\?token=secure-token/);
+    assert.deepEqual(request.body.to, ["ben@example.com"]);
+    assert.match(request.body.html, /You were added to Lagos Flat/);
+    assert.match(request.body.html, /Ada added you/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("disables a placeholder Resend credential before it can break signup", () => {
+test("disables a placeholder Resend credential before it can break notifications", () => {
   const notifier = createEmailNotifier({
     apiKey: "re_your_api_key",
     from: "RentSplit <notifications@example.com>",
@@ -48,9 +50,25 @@ test("disables a placeholder Resend credential before it can break signup", () =
 
 test("skips email delivery cleanly when Resend is not configured", async () => {
   const notifier = createEmailNotifier({ appUrl: "http://localhost:3000" });
-  const result = await notifier.sendVerificationEmail({
-    user: { name: "Ada", email: "ada@example.com" },
-    url: "http://localhost:3000/verify",
+  const result = await notifier.memberAdded({
+    store: invitationStore(),
+    householdId: "home_1",
+    userId: "user_2",
+    invitedByUserId: "user_1",
   });
-  assert.deepEqual(result, { skipped: true });
+  assert.deepEqual(result, { sent: 0, failed: 0, skipped: 1 });
 });
+
+function invitationStore() {
+  return {
+    async read() {
+      return {
+        households: [{ id: "home_1", name: "Lagos Flat" }],
+        users: [
+          { id: "user_1", name: "Ada", email: "ada@example.com" },
+          { id: "user_2", name: "Ben", email: "ben@example.com" },
+        ],
+      };
+    },
+  };
+}

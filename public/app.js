@@ -27,11 +27,15 @@ const elements = {
   accountEmail: document.querySelector("#account-email"),
   accountName: document.querySelector("#account-name"),
   appShell: document.querySelector("#app-shell"),
+  authBack: document.querySelector("#auth-back"),
   authCopy: document.querySelector("#auth-copy"),
   authForm: document.querySelector("#auth-form"),
   authMessage: document.querySelector("#auth-message"),
-  authNameField: document.querySelector("#auth-name-field"),
+  authProgress: document.querySelector("#auth-progress"),
+  authProgressDots: [...document.querySelectorAll(".auth-progress-dots i")],
   authScreen: document.querySelector("#auth-screen"),
+  authStepLabel: document.querySelector("#auth-step-label"),
+  authSteps: [...document.querySelectorAll("[data-auth-step]")],
   authTitle: document.querySelector("#auth-title"),
   authToggle: document.querySelector("#auth-toggle"),
   coverExpenseName: document.querySelector("#cover-expense-name"),
@@ -69,7 +73,6 @@ const elements = {
   setupCopy: document.querySelector("#setup-copy"),
   setupState: document.querySelector("#setup-state"),
   setupTitle: document.querySelector("#setup-title"),
-  resendVerification: document.querySelector("#resend-verification"),
   sendReminders: document.querySelector("#send-reminders"),
   signOut: document.querySelector("#sign-out"),
   sidebar: document.querySelector("#sidebar"),
@@ -82,7 +85,14 @@ const elements = {
 
 let toastTimer;
 let authMode = "sign-up";
-let pendingVerificationEmail = "";
+let authStep = 0;
+
+const signUpStepCopy = [
+  { title: "What should we call you?", copy: "Start with your name so your roommates know it is you." },
+  { title: "What is your email?", copy: "Use the email address you want connected to your households." },
+  { title: "Create a password", copy: "Use at least 8 characters to keep your account secure." },
+  { title: "Confirm your password", copy: "Enter it once more, then your account is ready." },
+];
 
 document.addEventListener("click", handleDocumentClick);
 elements.householdSelect.addEventListener("change", () => loadHousehold(elements.householdSelect.value));
@@ -91,14 +101,23 @@ elements.expenseSearch.addEventListener("input", renderExpenseTable);
 elements.expenseForm.addEventListener("change", updateCoverageMode);
 elements.existingUser.addEventListener("change", updatePersonMode);
 elements.authForm.addEventListener("submit", handleAuthSubmit);
-elements.authToggle.addEventListener("click", () => setAuthMode(authMode === "sign-up" ? "sign-in" : "sign-up"));
+elements.authBack.addEventListener("click", () => {
+  elements.authMessage.textContent = "";
+  setAuthStep(authStep - 1);
+});
+elements.authForm.elements.confirmPassword.addEventListener("input", () => {
+  elements.authForm.elements.confirmPassword.setCustomValidity("");
+});
+elements.authToggle.addEventListener("click", () => {
+  elements.authMessage.textContent = "";
+  setAuthMode(authMode === "sign-up" ? "sign-in" : "sign-up");
+});
 elements.coverForm.addEventListener("submit", (event) => submitForm(event, saveCoveredExpense));
 elements.personForm.addEventListener("submit", (event) => submitForm(event, savePerson));
 elements.householdForm.addEventListener("submit", (event) => submitForm(event, saveHousehold));
 elements.expenseForm.addEventListener("submit", (event) => submitForm(event, saveExpense));
 elements.paymentForm.addEventListener("submit", (event) => submitForm(event, savePayment));
 elements.sendReminders.addEventListener("click", sendReminderEmails);
-elements.resendVerification.addEventListener("click", resendVerificationEmail);
 elements.signOut.addEventListener("click", signOut);
 
 for (const dialog of document.querySelectorAll("dialog")) {
@@ -732,22 +751,37 @@ async function sendReminderEmails() {
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  if (!elements.authForm.reportValidity()) return;
+  const signingUp = authMode === "sign-up";
+  if (signingUp) {
+    const currentInput = elements.authSteps[authStep].querySelector("input");
+    if (authStep === signUpStepCopy.length - 1) {
+      const password = elements.authForm.elements.password;
+      currentInput.setCustomValidity(password.value === currentInput.value ? "" : "Passwords do not match.");
+    }
+    if (!currentInput.reportValidity()) return;
+    if (authStep < signUpStepCopy.length - 1) {
+      elements.authMessage.textContent = "";
+      setAuthStep(authStep + 1);
+      return;
+    }
+  } else if (!elements.authForm.reportValidity()) {
+    return;
+  }
+
   const formData = new FormData(elements.authForm);
   const submitButton = elements.authForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
-  submitButton.textContent = authMode === "sign-up" ? "Creating account…" : "Signing in…";
+  submitButton.textContent = signingUp ? "Creating account…" : "Signing in…";
   elements.authMessage.textContent = "";
   try {
     const body = { email: formData.get("email"), password: formData.get("password") };
-    pendingVerificationEmail = String(body.email || "");
-    if (authMode === "sign-up") body.name = formData.get("name");
-    await api(authMode === "sign-up" ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email", { method: "POST", body });
+    if (signingUp) body.name = formData.get("name");
+    await api(signingUp ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email", { method: "POST", body });
     state.session = await api("/session");
     if (!state.session.user) {
       setAuthMode("sign-in");
-      elements.authMessage.textContent = "Check your inbox, verify your email, then sign in.";
-      elements.resendVerification.classList.remove("is-hidden");
+      elements.authForm.elements.email.value = String(body.email || "");
+      elements.authMessage.textContent = "Your account is ready. Sign in to continue.";
       return;
     }
     showApplication();
@@ -757,49 +791,53 @@ async function handleAuthSubmit(event) {
     setSync("online", "All changes saved securely");
   } catch (error) {
     elements.authMessage.textContent = error.message;
-    if (/verif|email/i.test(error.message)) elements.resendVerification.classList.remove("is-hidden");
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = authMode === "sign-up" ? "Create account" : "Sign in";
+    submitButton.textContent = authMode === "sign-up"
+      ? authStep === signUpStepCopy.length - 1 ? "Create account" : "Continue"
+      : "Sign in";
   }
 }
 
 function setAuthMode(mode) {
   authMode = mode;
   const signingUp = mode === "sign-up";
-  elements.authTitle.textContent = signingUp ? "Create your account" : "Welcome back";
-  elements.authCopy.textContent = signingUp
-    ? "Start a private household, invite your roommates, and keep every payment clear."
-    : "Sign in to see your households, bills, and payment updates.";
-  elements.authNameField.classList.toggle("is-hidden", !signingUp);
+  elements.authForm.reset();
+  elements.authForm.elements.confirmPassword.setCustomValidity("");
   elements.authForm.elements.name.required = signingUp;
+  elements.authForm.elements.confirmPassword.required = signingUp;
   elements.authForm.elements.password.autocomplete = signingUp ? "new-password" : "current-password";
-  elements.authForm.querySelector('[type="submit"]').textContent = signingUp ? "Create account" : "Sign in";
   elements.authToggle.innerHTML = signingUp ? 'Already have an account? <strong>Sign in</strong>' : 'New to RentSplit? <strong>Create an account</strong>';
-  elements.resendVerification.classList.add("is-hidden");
+  setAuthStep(0);
 }
 
-async function resendVerificationEmail() {
-  const email = pendingVerificationEmail || elements.authForm.elements.email.value;
-  if (!email) {
-    elements.authMessage.textContent = "Enter your email address first.";
-    return;
+function setAuthStep(step) {
+  const signingUp = authMode === "sign-up";
+  authStep = Math.max(0, Math.min(step, signUpStepCopy.length - 1));
+  elements.authProgress.classList.toggle("is-hidden", !signingUp);
+  elements.authSteps.forEach((field, index) => {
+    const visible = signingUp ? index === authStep : index === 1 || index === 2;
+    field.classList.toggle("is-hidden", !visible);
+  });
+  elements.authBack.classList.toggle("is-hidden", !signingUp || authStep === 0);
+  elements.authProgressDots.forEach((dot, index) => dot.classList.toggle("is-active", index <= authStep));
+
+  if (signingUp) {
+    elements.authStepLabel.textContent = `Step ${authStep + 1} of ${signUpStepCopy.length}`;
+    elements.authTitle.textContent = signUpStepCopy[authStep].title;
+    elements.authCopy.textContent = signUpStepCopy[authStep].copy;
+  } else {
+    elements.authTitle.textContent = "Welcome back";
+    elements.authCopy.textContent = "Sign in to see your households, bills, and payment updates.";
   }
-  const originalLabel = elements.resendVerification.textContent;
-  elements.resendVerification.disabled = true;
-  elements.resendVerification.textContent = "Requesting…";
-  try {
-    await api("/api/auth/send-verification-email", {
-      method: "POST",
-      body: { email, callbackURL: "/" },
-    });
-    elements.authMessage.textContent = "Verification email requested. Check your inbox.";
-  } catch (error) {
-    elements.authMessage.textContent = error.message;
-  } finally {
-    elements.resendVerification.disabled = false;
-    elements.resendVerification.textContent = originalLabel;
-  }
+  elements.authForm.querySelector('[type="submit"]').textContent = signingUp
+    ? authStep === signUpStepCopy.length - 1 ? "Create account" : "Continue"
+    : "Sign in";
+
+  const focusTarget = signingUp
+    ? elements.authSteps[authStep].querySelector("input")
+    : elements.authForm.elements.email;
+  if (!elements.authScreen.classList.contains("is-hidden")) setTimeout(() => focusTarget.focus(), 0);
 }
 
 async function signOut() {

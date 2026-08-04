@@ -39,13 +39,20 @@
           <p id="auth-copy">Start a private household, invite your roommates, and keep every payment clear.</p>
         </div>
         <form id="auth-form">
-          <label class="field" id="auth-name-field">Full name<input name="name" type="text" minlength="2" maxlength="80" autocomplete="name" placeholder="e.g. Ada Okafor" required></label>
-          <label class="field">Email address<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="ada@example.com" required></label>
-          <label class="field">Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required></label>
-          <button class="button button-primary auth-submit" type="submit">Create account</button>
+          <div class="auth-progress" id="auth-progress">
+            <span id="auth-step-label">Step 1 of 4</span>
+            <div class="auth-progress-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <label class="field auth-step" data-auth-step="0">Full name<input name="name" type="text" minlength="2" maxlength="80" autocomplete="name" placeholder="e.g. Ada Okafor" required></label>
+          <label class="field auth-step is-hidden" data-auth-step="1">Email address<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="ada@example.com" required></label>
+          <label class="field auth-step is-hidden" data-auth-step="2">Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required></label>
+          <label class="field auth-step is-hidden" data-auth-step="3">Confirm password<input name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter your password again" required></label>
+          <div class="auth-actions">
+            <button class="button button-secondary auth-back is-hidden" id="auth-back" type="button">Back</button>
+            <button class="button button-primary auth-submit" type="submit">Continue</button>
+          </div>
         </form>
         <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
-        <button class="auth-resend is-hidden" id="resend-verification" type="button">Resend verification email</button>
         <button class="auth-toggle" id="auth-toggle" type="button">Already have an account? <strong>Sign in</strong></button>
         <p class="auth-note">Your household data is private and only visible to its members.</p>
       </div>

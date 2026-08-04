@@ -27,7 +27,6 @@ export function startServer({
     baseUrl,
     trustedOrigins,
     trustProxyHeaders: process.env.RENDER === "true",
-    emailNotifier,
   });
   const server = createServer(createApp({ store, auth, emailNotifier }));
 

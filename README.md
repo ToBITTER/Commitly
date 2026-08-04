@@ -8,7 +8,7 @@ It tracks who paid, who participated, how much each person owes, and a compact p
 
 - Responsive dashboard for onboarding, expenses, roommates, balances, reminders, and payments
 - Real email/password accounts with private, member-only household access
-- Email verification, roommate invitations, expense updates, payment updates, and owner-triggered reminders
+- Instant four-step signup, roommate invitations, expense updates, payment updates, and owner-triggered reminders
 - Paid and unpaid bill states, including a later "mark as paid" flow
 - Multi-household switching with currency-aware formatting
 - Settlement logic that calculates who owes whom after expenses and payments
@@ -142,7 +142,7 @@ RentSplit is configured for a free Render web service backed by free Neon Postgr
 4. Render reads `render.yaml`. Set `DATABASE_URL`, `BETTER_AUTH_URL` to the public `https://…onrender.com` URL, `RESEND_API_KEY` to the complete `re_…` token (not the key name, ID, placeholder, or a quoted value), and `EMAIL_FROM`; Render generates `BETTER_AUTH_SECRET` automatically.
 5. Set `EMAIL_FROM` to a verified sender such as `RentSplit <notifications@your-domain.com>`.
 6. Create or redeploy the Blueprint and wait for the health check to pass. Better Auth tables are created automatically at startup.
-7. Open the generated `https://rentsplit-….onrender.com` address, create an account, verify the email, and sign in.
+7. Open the generated `https://rentsplit-….onrender.com` address and create an account. RentSplit signs you in immediately.
 
 Verify the deployed app without changing its data:
 
