@@ -260,7 +260,7 @@
     <dialog class="modal" id="person-dialog">
       <form id="person-form">
         <div class="modal-header">
-          <div><p class="eyebrow">People</p><h2 id="person-dialog-title">Add a roommate</h2><p id="person-dialog-copy">Create a profile and add them to this household.</p></div>
+          <div><p class="eyebrow">People</p><h2 id="person-dialog-title">Add a roommate</h2><p id="person-dialog-copy">Invite them to this household.</p></div>
           <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
         </div>
         <div class="modal-body">
@@ -279,7 +279,7 @@
     <dialog class="modal" id="household-dialog">
       <form id="household-form">
         <div class="modal-header">
-          <div><p class="eyebrow">New space</p><h2>Create a household</h2><p>Choose a name, currency, and the first member.</p></div>
+          <div><p class="eyebrow">New space</p><h2>Create a household</h2><p>Choose a name and currency. In the signed-in app, only you and people you add can access it.</p></div>
           <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
         </div>
         <div class="modal-body">
@@ -297,7 +297,7 @@
     <dialog class="modal modal-wide" id="expense-dialog">
       <form id="expense-form">
         <div class="modal-header">
-          <div><p class="eyebrow">New expense</p><h2>Split a household cost</h2><p>Add the details and choose who shares it.</p></div>
+          <div><p class="eyebrow">New expense</p><h2>Record a shared expense</h2><p>Choose who paid. We will split the cost equally and track who needs to pay back.</p></div>
           <button class="icon-button" type="button" data-close-dialog aria-label="Close"><svg class="icon"><use href="#icon-x"/></svg></button>
         </div>
         <div class="modal-body">
@@ -307,18 +307,10 @@
             <label class="field">Category<select name="category"><option value="rent">Rent</option><option value="utilities">Utilities</option><option value="groceries">Groceries</option><option value="internet">Internet</option><option value="transport">Transport</option><option value="general">Other</option></select></label>
           </div>
           <div class="field-row">
-            <label class="field" id="expense-payer-field">Who covered it?<select id="expense-payer" name="paidByUserId"></select></label>
-            <label class="field">Due date <span>(optional)</span><input name="dueDate" type="date"></label>
+            <label class="field">Who paid for it?<select id="expense-payer" name="paidByUserId" required></select></label>
+            <label class="field">Pay back by <span>(optional)</span><input name="dueDate" type="date"></label>
           </div>
-          <fieldset class="coverage-field">
-            <legend>What is the payment situation?</legend>
-            <div class="coverage-grid">
-              <label class="coverage-option" id="coverage-self-option"><input type="radio" name="coverageMode" value="self" checked><span><strong>I paid the whole bill</strong><small>Roommates will owe their shares to me.</small></span></label>
-              <label class="coverage-option"><input type="radio" name="coverageMode" value="other"><span><strong>Someone else paid it</strong><small>Choose the roommate who covered everything.</small></span></label>
-              <label class="coverage-option"><input type="radio" name="coverageMode" value="unpaid"><span><strong>Nobody has paid yet</strong><small>Track each share without changing balances yet.</small></span></label>
-            </div>
-          </fieldset>
-          <fieldset class="participant-field"><legend>Split equally between</legend><div class="participant-grid" id="expense-participants"></div></fieldset>
+          <fieldset class="participant-field"><legend>Split equally with</legend><div class="participant-grid" id="expense-participants"></div><p class="form-note">The person who paid can be included too—their own share is already covered.</p></fieldset>
         </div>
         <div class="modal-footer"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Add expense</button></div>
       </form>

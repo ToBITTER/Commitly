@@ -46,7 +46,6 @@ const elements = {
   expenseForm: document.querySelector("#expense-form"),
   expenseParticipants: document.querySelector("#expense-participants"),
   expensePayer: document.querySelector("#expense-payer"),
-  expensePayerField: document.querySelector("#expense-payer-field"),
   expenseSearch: document.querySelector("#expense-search"),
   expenseTable: document.querySelector("#expense-table"),
   existingPersonField: document.querySelector("#existing-person-field"),
@@ -98,7 +97,6 @@ document.addEventListener("click", handleDocumentClick);
 elements.householdSelect.addEventListener("change", () => loadHousehold(elements.householdSelect.value));
 elements.mobileMenu.addEventListener("click", toggleSidebar);
 elements.expenseSearch.addEventListener("input", renderExpenseTable);
-elements.expenseForm.addEventListener("change", updateCoverageMode);
 elements.existingUser.addEventListener("change", updatePersonMode);
 elements.authForm.addEventListener("submit", handleAuthSubmit);
 elements.authBack.addEventListener("click", () => {
@@ -539,7 +537,11 @@ function preparePersonDialog() {
   const availableUsers = state.users.filter((user) => !members.has(user.id));
   const hasHousehold = Boolean(state.activeHousehold);
   elements.personDialogTitle.textContent = hasHousehold ? "Add a roommate" : "Create your profile";
-  elements.personDialogCopy.textContent = hasHousehold ? "Add their email and we will send an invitation." : "Add your details to get your household started.";
+  elements.personDialogCopy.textContent = hasHousehold
+    ? state.session.authenticationRequired
+      ? "Add their email and we will invite them to this private household."
+      : "Add their details to this household."
+    : "Add your details to get your household started.";
   elements.personRoleField.classList.toggle("is-hidden", !hasHousehold);
   elements.existingPersonField.classList.toggle("is-hidden", state.session.authenticationRequired || !hasHousehold || !availableUsers.length);
   elements.existingUser.innerHTML = `<option value="new">Create someone new</option>${availableUsers.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} — ${escapeHtml(user.email)}</option>`).join("")}`;
@@ -571,22 +573,7 @@ function prepareExpenseDialog() {
   `).join("");
   elements.expenseCurrency.textContent = state.activeHousehold.currency;
   const currentMember = members.find((member) => member.userId === state.session.user?.id);
-  const selfOption = document.querySelector("#coverage-self-option");
-  selfOption.classList.toggle("is-hidden", !currentMember);
-  if (currentMember) {
-    elements.expenseForm.elements.coverageMode.value = "self";
-    elements.expensePayer.value = currentMember.userId;
-  } else {
-    elements.expenseForm.elements.coverageMode.value = "other";
-  }
-  updateCoverageMode();
-}
-
-function updateCoverageMode() {
-  const mode = elements.expenseForm.elements.coverageMode.value;
-  const needsPayer = mode === "other";
-  elements.expensePayerField.classList.toggle("is-hidden", !needsPayer);
-  elements.expensePayer.required = needsPayer;
+  if (currentMember) elements.expensePayer.value = currentMember.userId;
 }
 
 function prepareCoverDialog(expense) {
@@ -686,23 +673,20 @@ async function saveExpense() {
   const formData = new FormData(elements.expenseForm);
   const participantUserIds = formData.getAll("participantUserIds");
   if (!participantUserIds.length) throw new Error("Choose at least one person to split this expense with.");
-  const coverageMode = formData.get("coverageMode");
   const body = {
     description: formData.get("description"),
     amount: formData.get("amount"),
     category: formData.get("category"),
-    paymentStatus: coverageMode === "unpaid" ? "unpaid" : "paid",
+    paymentStatus: "paid",
+    paidByUserId: formData.get("paidByUserId"),
     participantUserIds,
   };
-  if (body.paymentStatus === "paid") {
-    body.paidByUserId = coverageMode === "self" ? state.session.user?.id : formData.get("paidByUserId");
-    if (!body.paidByUserId) throw new Error("Choose who covered the bill.");
-  }
+  if (!body.paidByUserId) throw new Error("Choose who paid for this expense.");
   if (formData.get("dueDate")) body.dueDate = formData.get("dueDate");
   await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/expenses`, { method: "POST", body });
   document.querySelector("#expense-dialog").close();
   await loadHousehold(state.activeHousehold.id, { quiet: true });
-  showToast(body.paymentStatus === "paid" ? "Expense added and balances updated." : "Unpaid bill added. Balances will update when someone covers it.");
+  showToast("Expense added and balances updated.");
 }
 
 async function saveCoveredExpense() {
