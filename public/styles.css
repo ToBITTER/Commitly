@@ -72,6 +72,7 @@ body {
 .auth-card form { display: grid; gap: 16px; }
 .auth-submit { width: 100%; margin-top: 3px; }
 .auth-message { min-height: 18px; margin: 13px 0 0; color: var(--accent-dark); font-size: 11px; line-height: 1.5; text-align: center; }
+.auth-resend { display: block; width: 100%; padding: 6px; border: 0; color: var(--green); background: transparent; font-size: 11px; font-weight: 760; }
 .auth-toggle { display: block; width: 100%; padding: 7px; border: 0; color: var(--ink-soft); background: transparent; font-size: 11px; }
 .auth-toggle strong { color: var(--accent-dark); }
 .auth-note { margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-faint); font-size: 10px; line-height: 1.5; text-align: center; }

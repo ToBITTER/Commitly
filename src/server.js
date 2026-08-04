@@ -39,6 +39,7 @@ export function startServer({
       console.log(`Public URL: ${baseUrl}`);
       console.log(databaseUrl ? "Storage: PostgreSQL with account authentication" : `Storage: ${store.filePath}`);
       console.log(`Email notifications: ${emailNotifier.enabled ? "enabled" : "disabled"}`);
+      if (emailNotifier.configurationError) console.warn(`Email configuration: ${emailNotifier.configurationError}`);
     });
   }).catch((error) => {
     queueMicrotask(() => server.emit("error", error));

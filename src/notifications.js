@@ -1,7 +1,10 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 export function createEmailNotifier({ apiKey, from, appUrl }) {
-  const enabled = Boolean(apiKey && from);
+  const normalizedApiKey = String(apiKey || "").trim();
+  const normalizedFrom = String(from || "").trim();
+  const configurationError = getConfigurationError(normalizedApiKey, normalizedFrom);
+  const enabled = !configurationError && Boolean(normalizedApiKey && normalizedFrom);
   const homeUrl = String(appUrl || "http://localhost:3000").replace(/\/$/, "");
 
   async function send({ to, subject, text, actionUrl = homeUrl, actionLabel = "Open RentSplit" }) {
@@ -9,11 +12,12 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${normalizedApiKey}`,
         "Content-Type": "application/json",
+        "User-Agent": "rentsplit/1.0",
       },
       body: JSON.stringify({
-        from,
+        from: normalizedFrom,
         to: [to],
         subject,
         text,
@@ -39,6 +43,7 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
 
   return {
     enabled,
+    configurationError,
     sendVerificationEmail({ user, url }) {
       return send({
         to: user.email,
@@ -125,6 +130,18 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
       return sendMany(messages);
     },
   };
+}
+
+function getConfigurationError(apiKey, from) {
+  if (!apiKey && !from) return null;
+  if (!apiKey) return "RESEND_API_KEY is missing.";
+  if (!/^re_[A-Za-z0-9_-]{20,}$/.test(apiKey) || /your|replace|example|xxxxx/i.test(apiKey)) {
+    return "RESEND_API_KEY does not look like a complete Resend API token.";
+  }
+  if (!from) return "EMAIL_FROM is missing.";
+  const senderEmail = from.match(/<([^<>]+)>$/)?.[1] || from;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(senderEmail)) return "EMAIL_FROM must contain a valid sender email address.";
+  return null;
 }
 
 export async function notifySafely(label, task) {

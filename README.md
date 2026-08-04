@@ -139,7 +139,7 @@ RentSplit is configured for a free Render web service backed by free Neon Postgr
 1. Create a free project at [Neon](https://neon.com), select **Connect**, and copy the pooled connection string.
 2. Create a free [Resend](https://resend.com) account and API key. For testing, its default sender can deliver only to your own account email; notifying real roommates requires a verified sender domain.
 3. In [Render](https://render.com), choose **New → Blueprint** and connect this GitHub repository.
-4. Render reads `render.yaml`. Set `DATABASE_URL`, `BETTER_AUTH_URL` to the public `https://…onrender.com` URL, `RESEND_API_KEY`, and `EMAIL_FROM`; Render generates `BETTER_AUTH_SECRET` automatically.
+4. Render reads `render.yaml`. Set `DATABASE_URL`, `BETTER_AUTH_URL` to the public `https://…onrender.com` URL, `RESEND_API_KEY` to the complete `re_…` token (not the key name, ID, placeholder, or a quoted value), and `EMAIL_FROM`; Render generates `BETTER_AUTH_SECRET` automatically.
 5. Set `EMAIL_FROM` to a verified sender such as `RentSplit <notifications@your-domain.com>`.
 6. Create or redeploy the Blueprint and wait for the health check to pass. Better Auth tables are created automatically at startup.
 7. Open the generated `https://rentsplit-….onrender.com` address, create an account, verify the email, and sign in.
