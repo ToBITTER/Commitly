@@ -230,6 +230,12 @@ function clearHouseholdState() {
   state.payments = [];
 }
 
+function clearAccountState() {
+  state.users = [];
+  state.households = [];
+  clearHouseholdState();
+}
+
 function renderApp() {
   renderHouseholdSelect();
   const hasHousehold = Boolean(state.activeHousehold);
@@ -535,7 +541,7 @@ function preparePersonDialog() {
   elements.personDialogTitle.textContent = hasHousehold ? "Add a roommate" : "Create your profile";
   elements.personDialogCopy.textContent = hasHousehold ? "Add their email and we will send an invitation." : "Add your details to get your household started.";
   elements.personRoleField.classList.toggle("is-hidden", !hasHousehold);
-  elements.existingPersonField.classList.toggle("is-hidden", !hasHousehold || !availableUsers.length);
+  elements.existingPersonField.classList.toggle("is-hidden", state.session.authenticationRequired || !hasHousehold || !availableUsers.length);
   elements.existingUser.innerHTML = `<option value="new">Create someone new</option>${availableUsers.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} — ${escapeHtml(user.email)}</option>`).join("")}`;
   updatePersonMode();
 }
@@ -620,7 +626,7 @@ async function savePerson() {
   let userId = existingUserId;
   const hadHousehold = Boolean(state.activeHousehold);
 
-  if (hadHousehold && state.session.authenticationRequired && existingUserId === "new") {
+  if (hadHousehold && state.session.authenticationRequired) {
     await api(`/households/${encodeURIComponent(state.activeHousehold.id)}/invitations`, {
       method: "POST",
       body: {
@@ -784,14 +790,16 @@ async function handleAuthSubmit(event) {
       elements.authMessage.textContent = "Your account is ready. Sign in to continue.";
       return;
     }
-    showApplication();
+    clearAccountState();
     elements.loadingState.classList.remove("is-hidden");
     await refreshBaseData();
+    showApplication();
     elements.loadingState.classList.add("is-hidden");
     setSync("online", "All changes saved securely");
   } catch (error) {
     elements.authMessage.textContent = error.message;
   } finally {
+    elements.loadingState.classList.add("is-hidden");
     submitButton.disabled = false;
     submitButton.textContent = authMode === "sign-up"
       ? authStep === signUpStepCopy.length - 1 ? "Create account" : "Continue"
@@ -849,12 +857,13 @@ async function signOut() {
     return;
   }
   state.session.user = null;
-  clearHouseholdState();
+  clearAccountState();
   try {
     localStorage.removeItem("rentsplit.householdId");
   } catch {}
   elements.signOut.disabled = false;
   showAuthScreen("You have signed out.");
+  renderApp();
 }
 
 async function submitForm(event, action) {

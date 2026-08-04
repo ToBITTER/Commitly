@@ -103,7 +103,7 @@ test("HTTP server delivers the browser application", async () => {
   }
 });
 
-test("authenticated accounts only see households they belong to", async () => {
+test("authenticated accounts cannot access unrelated household data", async () => {
   const store = new MemoryStore();
   const auth = {
     async handler(_request, response) {
@@ -126,17 +126,63 @@ test("authenticated accounts only see households they belong to", async () => {
     const anonymousResponse = await fetch(`${baseUrl}/households`);
     assert.equal(anonymousResponse.status, 401);
 
+    const [ada] = await get(baseUrl, "/users", adaHeaders);
     const household = await post(baseUrl, "/households", { name: "Secure Flat", currency: "NGN" }, adaHeaders);
+    const expense = await post(baseUrl, `/households/${household.id}/expenses`, {
+      description: "Private rent",
+      amount: "1200.00",
+      paidByUserId: ada.id,
+      participantUserIds: [ada.id],
+    }, adaHeaders);
+    const benUsersBeforeInvite = await get(baseUrl, "/users", benHeaders);
     const benHouseholdsBeforeInvite = await get(baseUrl, "/households", benHeaders);
+    assert.equal(benUsersBeforeInvite.length, 1);
+    assert.equal(benUsersBeforeInvite[0].email, "ben.secure@example.com");
     assert.deepEqual(benHouseholdsBeforeInvite, []);
 
-    const forbiddenResponse = await fetch(`${baseUrl}/households/${household.id}`, { headers: benHeaders });
-    assert.equal(forbiddenResponse.status, 403);
+    for (const path of [
+      `/households/${household.id}`,
+      `/households/${household.id}/expenses`,
+      `/households/${household.id}/payments`,
+      `/households/${household.id}/balances`,
+      `/households/${household.id}/reminders`,
+    ]) {
+      const forbiddenResponse = await fetch(`${baseUrl}${path}`, { headers: benHeaders });
+      assert.equal(forbiddenResponse.status, 403, `${path} should reject an unrelated account`);
+    }
+
+    for (const [path, body] of [
+      [`/households/${household.id}/invitations`, { name: "Mallory", email: "mallory@example.com" }],
+      [`/households/${household.id}/expenses`, { description: "Intrusion", amount: "1.00", participantUserIds: [ada.id] }],
+      [`/households/${household.id}/expenses/${expense.id}/cover`, { paidByUserId: ada.id }],
+      [`/households/${household.id}/payments`, { fromUserId: ada.id, toUserId: "usr_missing", amount: "1.00" }],
+      [`/households/${household.id}/reminders/send`, {}],
+    ]) {
+      const forbiddenResponse = await fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...benHeaders },
+        body: JSON.stringify(body),
+      });
+      assert.equal(forbiddenResponse.status, 403, `${path} should reject an unrelated account`);
+    }
+
+    const legacyMemberResponse = await fetch(`${baseUrl}/households/${household.id}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...adaHeaders },
+      body: JSON.stringify({ userId: benUsersBeforeInvite[0].id }),
+    });
+    assert.equal(legacyMemberResponse.status, 400);
+    assert.equal((await legacyMemberResponse.json()).error.code, "invitation_required");
+
+    await post(baseUrl, "/households", { name: "Ben Home", currency: "NGN" }, benHeaders);
+    const adaHouseholds = await get(baseUrl, "/households", adaHeaders);
+    const benHouseholds = await get(baseUrl, "/households", benHeaders);
+    assert.deepEqual(adaHouseholds.map((item) => item.name), ["Secure Flat"]);
+    assert.deepEqual(benHouseholds.map((item) => item.name), ["Ben Home"]);
 
     await post(baseUrl, `/households/${household.id}/invitations`, { name: "Ben", email: "ben.secure@example.com" }, adaHeaders);
     const benHouseholdsAfterInvite = await get(baseUrl, "/households", benHeaders);
-    assert.equal(benHouseholdsAfterInvite.length, 1);
-    assert.equal(benHouseholdsAfterInvite[0].name, "Secure Flat");
+    assert.deepEqual(benHouseholdsAfterInvite.map((item) => item.name).sort(), ["Ben Home", "Secure Flat"]);
   } finally {
     server.close();
   }

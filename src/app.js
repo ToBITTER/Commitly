@@ -115,7 +115,10 @@ function routeRequest(method, pathname) {
         needsBody: true,
         status: 201,
         params: { householdId },
-        handler: async ({ store, params, body, currentUser, emailNotifier }) => {
+        handler: async ({ store, auth, params, body, currentUser, emailNotifier }) => {
+          if (auth) {
+            throw new RentSplitError("Invite roommates by email instead.", { status: 400, code: "invitation_required" });
+          }
           const membership = await addMember(store, params.householdId, body, currentUser?.id);
           if (emailNotifier) {
             await notifySafely("roommate invitation", () => emailNotifier.memberAdded({
