@@ -2,7 +2,7 @@
 
 RentSplit is a responsive web app for roommates who share rent, utilities, groceries, and other household expenses.
 
-It tracks who paid, who participated, how much each person owes, and a compact payment plan that settles the household. The browser dashboard and JSON API run together from one dependency-free Node server.
+It tracks who paid, who participated, how much each person owes, and a compact payment plan that settles the household. The browser dashboard and JSON API run together from one lightweight Node server.
 
 ## Highlights
 
@@ -10,7 +10,7 @@ It tracks who paid, who participated, how much each person owes, and a compact p
 - Multi-household switching with currency-aware formatting
 - Settlement logic that calculates who owes whom after expenses and payments
 - Friendly validation and durable, concurrency-safe local persistence
-- Installable web app shell with no frontend build step or third-party runtime dependencies
+- Installable web app shell with no frontend build step
 
 ## Tech Stack
 
@@ -19,6 +19,7 @@ It tracks who paid, who participated, how much each person owes, and a compact p
 - Native HTTP server, no framework dependency
 - Node test runner
 - JSON file storage for local development
+- PostgreSQL storage for free cloud deployment
 
 ## Quick Start
 
@@ -117,6 +118,24 @@ npm run smoke:api
 npm run verify
 ```
 
+## Free Deployment
+
+RentSplit is configured for a free Render web service backed by a free Neon Postgres database. PostgreSQL is used when `DATABASE_URL` is set; local development continues to use the JSON file.
+
+1. Create a free project at [Neon](https://neon.com), select **Connect**, and copy the pooled connection string.
+2. In [Render](https://render.com), choose **New → Blueprint** and connect this GitHub repository.
+3. Render reads `render.yaml`. Paste the Neon connection string when it asks for `DATABASE_URL`.
+4. Create the Blueprint and wait for the health check to pass.
+5. Open the generated `https://rentsplit-….onrender.com` address.
+
+Verify the deployed app without changing its data:
+
+```sh
+npm run check:deployment -- https://your-rentsplit-url.onrender.com
+```
+
+Render's free service sleeps after inactivity, so the first request after a quiet period can take about a minute. Data remains safe in Neon when the service sleeps or redeploys.
+
 ## Environment
 
 Copy `.env.example` if you want custom local values:
@@ -124,12 +143,12 @@ Copy `.env.example` if you want custom local values:
 ```txt
 PORT=3000
 RENTSPLIT_DATA_FILE=./data/rentsplit.json
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 ```
 
 ## Potential Next Features
 
 - Authentication
-- PostgreSQL database adapter
 - Scheduled email/WhatsApp reminders
 - Recurring rent and utility bills
 - CSV/PDF exports

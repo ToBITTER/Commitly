@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "rentsplit-api",
   "version": "1.0.0",
   "description": "Responsive roommate expense-splitting web app with balances, settlements, reminders, and a local API.",
@@ -12,6 +12,7 @@
     "dev": "node --watch ./src/server.js",
     "test": "node --test",
     "smoke:api": "node ./scripts/smoke-api.js",
+    "check:deployment": "node ./scripts/check-deployment.js",
     "verify": "npm test && npm run smoke:api"
   },
   "keywords": [
@@ -34,5 +35,8 @@
     "README.md",
     "LICENSE",
     ".env.example"
-  ]
+  ],
+  "dependencies": {
+    "pg": "^8.22.0"
+  }
 }

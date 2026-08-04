@@ -1,5 +1,8 @@
 ﻿import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import pg from "pg";
+
+const { Pool } = pg;
 
 export function createEmptyData() {
   return {
@@ -75,6 +78,57 @@ export class JsonFileStore extends MemoryStore {
       await rm(temporaryPath, { force: true });
       throw error;
     }
+  }
+}
+
+export class PostgresStore extends MemoryStore {
+  constructor(connectionString, { pool } = {}) {
+    super(createEmptyData());
+    if (!connectionString && !pool) throw new Error("A PostgreSQL connection string is required.");
+    this.pool = pool || new Pool({
+      connectionString,
+      max: 5,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+    });
+    this.ready = null;
+  }
+
+  async initialize() {
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS rentsplit_state (
+        id SMALLINT PRIMARY KEY CHECK (id = 1),
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await this.pool.query(
+      "INSERT INTO rentsplit_state (id, data) VALUES (1, $1::jsonb) ON CONFLICT (id) DO NOTHING",
+      [JSON.stringify(createEmptyData())],
+    );
+  }
+
+  ensureReady() {
+    this.ready ??= this.initialize();
+    return this.ready;
+  }
+
+  async read() {
+    await this.ensureReady();
+    const result = await this.pool.query("SELECT data FROM rentsplit_state WHERE id = 1");
+    return { ...createEmptyData(), ...clone(result.rows[0].data) };
+  }
+
+  async write(nextData) {
+    await this.ensureReady();
+    await this.pool.query(
+      "INSERT INTO rentsplit_state (id, data, updated_at) VALUES (1, $1::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()",
+      [JSON.stringify(nextData)],
+    );
+  }
+
+  async close() {
+    await this.pool.end();
   }
 }
 

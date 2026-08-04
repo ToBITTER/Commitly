@@ -47,7 +47,7 @@ export function createApp({ store = new MemoryStore() } = {}) {
 function routeRequest(method, pathname) {
   const parts = pathname.split("/").filter(Boolean);
   if (method === "GET" && pathname === "/api") return { handler: apiRoot };
-  if (method === "GET" && pathname === "/health") return { handler: health };
+  if (method === "GET" && pathname === "/health") return { handler: ({ store }) => health(store) };
   if (method === "GET" && pathname === "/users") return { handler: ({ store }) => listUsers(store) };
   if (method === "POST" && pathname === "/users") {
     return { needsBody: true, status: 201, handler: ({ store, body }) => createUser(store, body) };
@@ -126,7 +126,8 @@ function apiRoot() {
   };
 }
 
-function health() {
+async function health(store) {
+  await store.read();
   return { status: "ok", service: "rentsplit-api" };
 }
 
