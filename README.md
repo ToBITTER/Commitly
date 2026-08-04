@@ -134,13 +134,13 @@ npm run verify
 
 ## Free Deployment
 
-RentSplit is configured for a free Render web service backed by free Neon Postgres and Resend tiers. PostgreSQL is used when `DATABASE_URL` is set; that also enables real account authentication. Local development without `DATABASE_URL` continues to use the JSON file and lightweight profile flow.
+RentSplit is configured for a free Render web service backed by free Neon Postgres. PostgreSQL is used when `DATABASE_URL` is set; that also enables real account authentication. Local development without `DATABASE_URL` continues to use the JSON file and lightweight profile flow.
 
 1. Create a free project at [Neon](https://neon.com), select **Connect**, and copy the pooled connection string.
-2. Create a free [Resend](https://resend.com) account and API key. For testing, its default sender can deliver only to your own account email; notifying real roommates requires a verified sender domain.
+2. In your Google Account, enable two-step verification, then create a 16-character [Google app password](https://myaccount.google.com/apppasswords) for RentSplit. Never use your normal Google password.
 3. In [Render](https://render.com), choose **New → Blueprint** and connect this GitHub repository.
-4. Render reads `render.yaml`. Set `DATABASE_URL`, `BETTER_AUTH_URL` to the public `https://…onrender.com` URL, `RESEND_API_KEY` to the complete `re_…` token (not the key name, ID, placeholder, or a quoted value), and `EMAIL_FROM`; Render generates `BETTER_AUTH_SECRET` automatically.
-5. Set `EMAIL_FROM` to a verified sender such as `RentSplit <notifications@your-domain.com>`.
+4. Render reads `render.yaml`. Set `DATABASE_URL`, `BETTER_AUTH_URL` to the public `https://…onrender.com` URL, `GMAIL_USER` to `tobiloba.gbenle@gmail.com`, `GMAIL_APP_PASSWORD` to the Google app password, and `EMAIL_FROM` to `RentSplit <tobiloba.gbenle@gmail.com>`; Render generates `BETTER_AUTH_SECRET` automatically.
+5. Gmail shows the sender as **RentSplit** with `tobiloba.gbenle@gmail.com` as the email address. Sending from a different address requires a configured Gmail alias or a custom domain.
 6. Create or redeploy the Blueprint and wait for the health check to pass. Better Auth tables are created automatically at startup.
 7. Open the generated `https://rentsplit-….onrender.com` address and create an account. RentSplit signs you in immediately.
 
@@ -162,8 +162,10 @@ RENTSPLIT_DATA_FILE=./data/rentsplit.json
 DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
 BETTER_AUTH_URL=http://localhost:3000
-RESEND_API_KEY=re_your_api_key
-EMAIL_FROM="RentSplit <notifications@your-domain.com>"
+EMAIL_PROVIDER=gmail
+GMAIL_USER=tobiloba.gbenle@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-google-app-password
+EMAIL_FROM="RentSplit <tobiloba.gbenle@gmail.com>"
 ```
 
 Never commit `.env`. If a real database connection string is ever exposed in a tracked file, rotate that Neon role password immediately.

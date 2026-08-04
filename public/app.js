@@ -14,6 +14,8 @@ const state = {
   view: "overview",
 };
 
+const THEME_STORAGE_KEY = "rentsplit-theme";
+
 const viewCopy = {
   overview: { title: "Overview", eyebrow: "Your shared home" },
   expenses: { title: "Expenses", eyebrow: "Track every shared cost" },
@@ -76,6 +78,8 @@ const elements = {
   signOut: document.querySelector("#sign-out"),
   sidebar: document.querySelector("#sidebar"),
   syncState: document.querySelector("#sync-state"),
+  themeColor: document.querySelector('meta[name="theme-color"]'),
+  themeToggle: document.querySelector("#theme-toggle"),
   toast: document.querySelector("#toast"),
   toastMessage: document.querySelector("#toast-message"),
   viewEyebrow: document.querySelector("#view-eyebrow"),
@@ -117,6 +121,9 @@ elements.expenseForm.addEventListener("submit", (event) => submitForm(event, sav
 elements.paymentForm.addEventListener("submit", (event) => submitForm(event, savePayment));
 elements.sendReminders.addEventListener("click", sendReminderEmails);
 elements.signOut.addEventListener("click", signOut);
+elements.themeToggle.addEventListener("click", toggleTheme);
+
+applyTheme(readStoredTheme());
 
 for (const dialog of document.querySelectorAll("dialog")) {
   dialog.addEventListener("click", (event) => {
@@ -919,6 +926,28 @@ function showToast(message, isError = false) {
 function toggleSidebar() {
   const isOpen = elements.sidebar.classList.toggle("is-open");
   elements.mobileMenu.setAttribute("aria-expanded", String(isOpen));
+}
+
+function toggleTheme() {
+  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+}
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.documentElement.dataset.theme = isDark ? "dark" : "light";
+  elements.themeToggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+  elements.themeToggle.setAttribute("aria-pressed", String(isDark));
+  elements.themeToggle.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+  elements.themeToggle.querySelector("use").setAttribute("href", isDark ? "#icon-sun" : "#icon-moon");
+  elements.themeColor.content = isDark ? "#161719" : "#ffffff";
+}
+
+function readStoredTheme() {
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === "dark" || storedTheme === "light") return storedTheme;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function formatMoney(amount, currency) {

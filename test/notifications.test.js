@@ -38,6 +38,35 @@ test("sends roommate invitation email through Resend", async () => {
   }
 });
 
+test("sends roommate invitation email through Gmail with Nodemailer", async () => {
+  let message;
+  const notifier = createEmailNotifier({
+    provider: "gmail",
+    gmailUser: "tobiloba.gbenle@gmail.com",
+    gmailAppPassword: "abcdefghijklmnop",
+    from: "RentSplit <tobiloba.gbenle@gmail.com>",
+    appUrl: "https://rentsplit.example.com",
+    transport: {
+      async sendMail(mail) {
+        message = mail;
+        return { messageId: "gmail_1" };
+      },
+    },
+  });
+
+  await notifier.memberAdded({
+    store: invitationStore(),
+    householdId: "home_1",
+    userId: "user_2",
+    invitedByUserId: "user_1",
+  });
+
+  assert.equal(notifier.enabled, true);
+  assert.equal(message.from, "RentSplit <tobiloba.gbenle@gmail.com>");
+  assert.equal(message.to, "ben@example.com");
+  assert.match(message.html, /You were added to Lagos Flat/);
+});
+
 test("disables a placeholder Resend credential before it can break notifications", () => {
   const notifier = createEmailNotifier({
     apiKey: "re_your_api_key",

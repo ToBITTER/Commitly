@@ -1,14 +1,35 @@
+import nodemailer from "nodemailer";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-export function createEmailNotifier({ apiKey, from, appUrl }) {
+export function createEmailNotifier({ provider, apiKey, from, appUrl, gmailUser, gmailAppPassword, transport } = {}) {
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
   const normalizedApiKey = String(apiKey || "").trim();
-  const normalizedFrom = String(from || "").trim();
-  const configurationError = getConfigurationError(normalizedApiKey, normalizedFrom);
-  const enabled = !configurationError && Boolean(normalizedApiKey && normalizedFrom);
+  const normalizedGmailUser = String(gmailUser || "").trim();
+  const normalizedGmailAppPassword = String(gmailAppPassword || "").replace(/\s/g, "");
+  const useGmail = normalizedProvider === "gmail" || (!normalizedProvider && Boolean(normalizedGmailUser || normalizedGmailAppPassword));
+  const normalizedFrom = String(from || (useGmail && normalizedGmailUser ? `RentSplit <${normalizedGmailUser}>` : "")).trim();
+  const configurationError = useGmail
+    ? getGmailConfigurationError(normalizedGmailUser, normalizedGmailAppPassword, normalizedFrom)
+    : getResendConfigurationError(normalizedProvider, normalizedApiKey, normalizedFrom);
+  const enabled = !configurationError && (useGmail ? Boolean(normalizedGmailUser && normalizedGmailAppPassword) : Boolean(normalizedApiKey && normalizedFrom));
+  const gmailTransport = useGmail && enabled ? transport || nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: normalizedGmailUser, pass: normalizedGmailAppPassword },
+  }) : null;
   const homeUrl = String(appUrl || "http://localhost:3000").replace(/\/$/, "");
 
   async function send({ to, subject, text, actionUrl = homeUrl, actionLabel = "Open RentSplit" }) {
     if (!enabled) return { skipped: true };
+    if (useGmail) {
+      return gmailTransport.sendMail({
+        from: normalizedFrom,
+        to,
+        subject,
+        text,
+        html: emailDocument(subject, text, actionUrl, actionLabel),
+      });
+    }
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
@@ -123,7 +144,8 @@ export function createEmailNotifier({ apiKey, from, appUrl }) {
   };
 }
 
-function getConfigurationError(apiKey, from) {
+function getResendConfigurationError(provider, apiKey, from) {
+  if (provider && provider !== "resend") return "EMAIL_PROVIDER must be either gmail or resend.";
   if (!apiKey && !from) return null;
   if (!apiKey) return "RESEND_API_KEY is missing.";
   if (!/^re_[A-Za-z0-9_-]{20,}$/.test(apiKey) || /your|replace|example|xxxxx/i.test(apiKey)) {
@@ -132,6 +154,15 @@ function getConfigurationError(apiKey, from) {
   if (!from) return "EMAIL_FROM is missing.";
   const senderEmail = from.match(/<([^<>]+)>$/)?.[1] || from;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(senderEmail)) return "EMAIL_FROM must contain a valid sender email address.";
+  return null;
+}
+
+function getGmailConfigurationError(user, appPassword, from) {
+  if (!user) return "GMAIL_USER is missing.";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return "GMAIL_USER must be a valid Gmail address.";
+  if (!appPassword || /your|replace|example|xxxxx/i.test(appPassword)) return "GMAIL_APP_PASSWORD must be a complete Google app password.";
+  const senderEmail = from.match(/<([^<>]+)>$/)?.[1] || from;
+  if (senderEmail.toLowerCase() !== user.toLowerCase()) return "EMAIL_FROM must use the same address as GMAIL_USER when sending through Gmail.";
   return null;
 }
 

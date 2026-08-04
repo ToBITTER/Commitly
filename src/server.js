@@ -17,9 +17,12 @@ export function startServer({
 } = {}) {
   const store = databaseUrl ? new PostgresStore(databaseUrl) : new JsonFileStore(dataFile);
   const emailNotifier = createEmailNotifier({
+    provider: process.env.EMAIL_PROVIDER?.trim(),
     apiKey: process.env.RESEND_API_KEY?.trim(),
     from: process.env.EMAIL_FROM?.trim(),
     appUrl: baseUrl,
+    gmailUser: process.env.GMAIL_USER?.trim(),
+    gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
   });
   const auth = createAuthService({
     databaseUrl,
