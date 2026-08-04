@@ -11,7 +11,8 @@ export function startServer({
   host = getHost(),
   dataFile = getDataFile(),
   databaseUrl = getDatabaseUrl(),
-  baseUrl = getBaseUrl(port),
+  baseUrl = resolvePublicUrl(port),
+  trustedOrigins = resolveTrustedOrigins(baseUrl),
   authSecret = process.env.BETTER_AUTH_SECRET?.trim(),
 } = {}) {
   const store = databaseUrl ? new PostgresStore(databaseUrl) : new JsonFileStore(dataFile);
@@ -20,7 +21,14 @@ export function startServer({
     from: process.env.EMAIL_FROM?.trim(),
     appUrl: baseUrl,
   });
-  const auth = createAuthService({ databaseUrl, secret: authSecret, baseUrl, emailNotifier });
+  const auth = createAuthService({
+    databaseUrl,
+    secret: authSecret,
+    baseUrl,
+    trustedOrigins,
+    trustProxyHeaders: process.env.RENDER === "true",
+    emailNotifier,
+  });
   const server = createServer(createApp({ store, auth, emailNotifier }));
 
   void Promise.all([store.initialize?.(), auth?.initialize?.()]).then(() => {
@@ -28,6 +36,7 @@ export function startServer({
       const address = server.address();
       const actualPort = typeof address === "object" && address ? address.port : port;
       console.log(`RentSplit running on http://localhost:${actualPort}`);
+      console.log(`Public URL: ${baseUrl}`);
       console.log(databaseUrl ? "Storage: PostgreSQL with account authentication" : `Storage: ${store.filePath}`);
       console.log(`Email notifications: ${emailNotifier.enabled ? "enabled" : "disabled"}`);
     });
@@ -64,8 +73,39 @@ function getDatabaseUrl() {
   return process.env.DATABASE_URL?.trim() || null;
 }
 
-function getBaseUrl(port) {
-  return (process.env.BETTER_AUTH_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, "");
+export function resolvePublicUrl(port, environment = process.env) {
+  const configuredUrl = normalizeOrigin(environment.BETTER_AUTH_URL);
+  const renderUrl = normalizeOrigin(environment.RENDER_EXTERNAL_URL)
+    || normalizeOrigin(environment.RENDER_EXTERNAL_HOSTNAME ? `https://${environment.RENDER_EXTERNAL_HOSTNAME}` : null);
+  const configuredIsLocal = configuredUrl && new URL(configuredUrl).hostname === "localhost";
+  if (environment.RENDER === "true" && configuredIsLocal) return renderUrl || configuredUrl;
+  return configuredUrl || renderUrl || `http://localhost:${port}`;
+}
+
+export function resolveTrustedOrigins(baseUrl, environment = process.env) {
+  const candidates = [
+    baseUrl,
+    environment.RENDER_EXTERNAL_URL,
+    environment.RENDER_EXTERNAL_HOSTNAME ? `https://${environment.RENDER_EXTERNAL_HOSTNAME}` : null,
+    environment.BETTER_AUTH_URL,
+  ];
+  return [...new Set(candidates.map(normalizeOrigin).filter((origin) => {
+    if (!origin) return false;
+    if (environment.RENDER !== "true") return true;
+    const hostname = new URL(origin).hostname;
+    return hostname !== "localhost" && hostname !== "127.0.0.1";
+  }))];
+}
+
+function normalizeOrigin(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
 }
 
 const entrypoint = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : "";
